@@ -1,4 +1,4 @@
-# Comparison-of-Methods-for-Estimating-Future-Flood-Risk-in-New-Orleans-Louisiana
+# Comparison of Methods for Estimating Future Flood Risk in New Orleans Louisiana
 A summer research project conducted by Anthony Wong and Travis Torline at the University of Colorado Boulder
 
 This project will use sea level data from New Orleans, Louisiana to make improved projections of flood risk throughout the 21st century. The currently-used calculation of flood hazard relies on some “magic numbers”. We will estimate appropriate values for those parameters using an independent and statistically rigorous approach.
