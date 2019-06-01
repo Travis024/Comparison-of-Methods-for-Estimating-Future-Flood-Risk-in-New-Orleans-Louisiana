@@ -1,0 +1,88 @@
+---
+title: "Starter Problems Code"
+---
+```{r}
+#PROBLEM 1
+
+#Plot a probability density function of a GEV
+#Use either revd, devd, qevd, or pevd
+#Bounds on horizontal axis of [0,8]
+
+library(extRemes)
+x = revd(10000,loc=2,scale=0.75,shape=0)
+hist(x,prob=T)
+lines(density(x))
+```
+
+```{r}
+#PROBLEM 3
+
+#Find the CDF of the above PDF
+#Evaluate at X = 4
+
+x = revd(10000,loc=2,scale=0.75,shape=0)
+gevCDF <- ecdf(x)
+gevCDF (4)
+```
+
+```{r}
+#PROBLEM 8
+
+#Set up a data frame for parameter values and years 2000 - 2100
+#Make a plot of μ(t)
+
+#Begin by creating the data frame
+#Vectors of each paramter and the years
+#Fill in mu using the given equation
+	year <- c(2000:2100)
+  sigma <- seq(0.75, 0.75, length.out = 101)
+	xi <- seq(0, 0, length.out = 101)
+	mu <- c()
+	
+mu[1] = 2
+for(i in 2:101) {mu[i] = mu[1] + .004 * i} 
+parameter.data <- data.frame(year, mu, sigma, xi)
+
+#Now, create the graph
+	with(parameter.data, plot(year, mu, type = "l", xlab = "Year", ylab = "μ(t) [meters]"))
+	axis(side = 1, at=c(2010, 2030, 2050, 2070, 2090), labels = c("", "", "", "", ""), tck = -0.05)
+```
+
+```{r}
+#PROBLEM 9
+
+#Compute the PDF of an evenly spaced grid of sea levels for each year
+#Store the PDF values in a dat frame
+#One dimension corresponds to sea-level
+#The other corresponds to the year
+
+#Begin by creating the sea levels
+sealevel.values <- seq(0, 8, by = 0.5)
+
+#Now create a data frame; 1:101 represents 2000 - 21000
+sealevel.pdf <- as.data.frame(matrix(nrow = 17, ncol = 101))
+
+#Fill in the PDF using the changing parameters and the devd function
+for(i in 1:101){
+    newMu = parameter.data[i, "mu"]
+    newSigma = parameter.data[i, "sigma"]
+    newXi = parameter.data[i, "xi"]
+    sealevel.vector = devd(sealevel.values, newMu, newSigma, newXi)
+    for(j in 1:17){
+        sealevel.pdf[j,i] = sealevel.vector[j]
+    }
+}
+```
+
+```{r}
+#PROBLEM 10
+
+#Make a plot of 2000, 2020, 2040, 2060 2080, 2100
+#All should be on the same graph
+
+#Start by graphing PDF for 2000
+x <- sealevel.pdf[1:17, 1]
+	hist(x, prob = T)
+	lines(density(x))
+```
+
