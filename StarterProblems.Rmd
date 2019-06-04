@@ -17,12 +17,11 @@ lines(density(x))
 ```{r}
 #PROBLEM 3
 
-#Find the CDF of the above PDF
-#Evaluate at X = 4
-
-x = revd(10000,loc=2,scale=0.75,shape=0)
-gevCDF <- ecdf(x)
-gevCDF (4)
+#Find the CDF of the above PDF where loc = 2, scale = 0.75, shape = 0
+#Evaluate at X = 4 (in this case, the fifth element)
+#Subtract from 1 because pevd gives us the probability UNDER 4
+cdfVector <- pevd(0:8, 2, 0.75, 0)
+1-cdfVector[5]
 ```
 
 ```{r}
@@ -41,10 +40,10 @@ gevCDF (4)
 	
 mu[1] = 2
 for(i in 2:101) {mu[i] = mu[1] + .004 * i} 
-parameter.data <- data.frame(year, mu, sigma, xi)
+parameterData <- data.frame(year, mu, sigma, xi)
 
 #Now, create the graph
-	with(parameter.data, plot(year, mu, type = "l", xlab = "Year", ylab = "μ(t) [meters]"))
+	with(parameterData, plot(year, mu, type = "l", xlab = "Year", ylab = "μ(t) [meters]"))
 	axis(side = 1, at=c(2010, 2030, 2050, 2070, 2090), labels = c("", "", "", "", ""), tck = -0.05)
 ```
 
@@ -57,19 +56,19 @@ parameter.data <- data.frame(year, mu, sigma, xi)
 #The other corresponds to the year
 
 #Begin by creating the sea levels
-sealevel.values <- seq(0, 8, by = 0.5)
+seaLevelValues <- seq(0, 8, by = 0.05)
 
 #Now create a data frame; 1:101 represents 2000 - 21000
-sealevel.pdf <- as.data.frame(matrix(nrow = 17, ncol = 101))
+seaLevelPDF <- as.data.frame(matrix(nrow = 17, ncol = 101))
 
 #Fill in the PDF using the changing parameters and the devd function
 for(i in 1:101){
-    newMu = parameter.data[i, "mu"]
-    newSigma = parameter.data[i, "sigma"]
-    newXi = parameter.data[i, "xi"]
-    sealevel.vector = devd(sealevel.values, newMu, newSigma, newXi)
-    for(j in 1:17){
-        sealevel.pdf[j,i] = sealevel.vector[j]
+    newMu = parameterData[i, "mu"]
+    newSigma = parameterData[i, "sigma"]
+    newXi = parameterData[i, "xi"]
+    seaLevelVector = devd(seaLevelValues, newMu, newSigma, newXi)
+    for(j in 1:161){
+        seaLevelPDF[j,i] = seaLevelVector[j]
     }
 }
 ```
@@ -80,9 +79,72 @@ for(i in 1:101){
 #Make a plot of 2000, 2020, 2040, 2060 2080, 2100
 #All should be on the same graph
 
-#Start by graphing PDF for 2000
-x <- sealevel.pdf[1:17, 1]
-	hist(x, prob = T)
-	lines(density(x))
+
+#Start by making a plot - graph the pdf for 2000 first
+#This function contains all labelling
+plot(seaLevelValues, seaLevelPDF[,1], col = "blue", type = "l", main = "Probability Density Functions Over Time Given Changing Parameters", xlab = "Sea Level [meters]", ylab = "Probability")
+
+#Create a legen for the plot
+legend("topright", "Year", c("2000", "2020", "2040", "2060", "2080", "2100"), fill = c("blue", "red", "yellow", "green", "orange", "pink"), horiz = TRUE, cex = .75)
+
+#To graoh on the same plot, use the lines() function for the remaining 5 PDF's
+lines(seaLevelValues, seaLevelPDF[,21], col = "red")
+
+lines(seaLevelValues, seaLevelPDF[,41], col = "yellow")
+
+lines(seaLevelValues, seaLevelPDF[,61], col = "green")
+
+lines(seaLevelValues, seaLevelPDF[,81], col = "orange")
+
+lines(seaLevelValues, seaLevelPDF[,101], col = "pink")
+
+```
+
+```{r}
+#PROBLEM 11
+
+#For each year, compute the probabiity of a seas level such that X > 4
+#Then make a plot of annual excedance probability over time
+
+#Create a vector to store all probabilities
+annualExcedance <- c()
+
+#Calculate all of the probabilities and append to our vector
+for(i in 1:101){
+  
+  #Get the new parameter values for the given year
+  newMu <- parameterData[i, "mu"]
+  newSigma <- parameterData[i, "sigma"]
+  newXi <- parameterData[i, "xi"]
+  
+  #Find the probability at X = 4 using the index 81 (since sealevels steps by 0.05 from 0 to 8)
+  #Subtract from 1 because pevd gives us the probaility UNDER a given point
+  probabilityVector = pevd(seaLevelValues, newMu, newSigma, newXi)
+  excedanceProbability = 1 - probabilityVector[81]
+  
+  #Append to the vector
+  annualExcedance <- append(annualExcedance, excedanceProbability)
+}
+
+
+#Create the graph
+plot(year, annualExcedance, type = "l", main = "Annual Exceedance Probability Over Time", xlab = "Sea Level [meters]", ylab = "Annual Exceedance Probability")
+
+```
+
+```{r}
+#PROBLEM 12
+
+#First, read in a NetCDF file
+#To install ncdf4, use the following:
+#install.packages(c('ncdf4'))
+
+library(ncdf4)
+
+#Ensure the file is in the working directory
+#Use getwd()
+ncin <- nc_open("StarterProblemsNCDF.nc")
+print(ncin)
+
 ```
 
