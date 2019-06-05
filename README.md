@@ -5,7 +5,7 @@ This project will use sea level data from New Orleans, Louisiana to make improve
 
 As sea levels and storm surges rise due to climate change, this project will highlight important modeling uncertainties and provide recommendations for augmenting the flood protection system in New Orleans. These results will benefit the flood risk modeling community as well as the local population of New Orleans.
 
-##Week 1
+## Week 1
 
 Work through starter problems to get a better feel for the R programming language, the extRemes packages, and NetCDF files (a common file type used in meteorology, climatology, and oceanography)
 
