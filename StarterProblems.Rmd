@@ -197,6 +197,46 @@ range(time_proj)
 
 #It appears as though each column in LSL85 is a year between the dates 1850 and 2100
 #It appears as though each row in LSL85 is a projection of the change in sea level from the year 2000 using changing GEV parameters and surge factors
+```
+
+```{r}
+#PROBLEM 14
+
+#Now, using the same NetCDF file, Randomly sample and plot 20 simulations of LSL from each of the RCP2.6, 4.5 and 8.5 scenarios
+
+#Make sure each RCP is loaded in
+LSL85 <- ncvar_get(ncin, "LocalSeaLevel_gamma_RCP85")
+LSL45 <- ncvar_get(ncin, "LocalSeaLevel_gamma_RCP45")
+LSL26 <- ncvar_get(ncin, "LocalSeaLevel_gamma_RCP26")
+
+#We want to make 20 lines for each LSL, so our outer loop runs 20 times
+for(i in 1:20){
+  
+  #For each LSL we initialize a vector that will store the points we sample
+  sampleVector85 <- c()
+  sampleVector45 <- c()
+  sampleVector26 <- c()
+  
+  #For each year from 2000 to 2100 we pull a sample point from the LSL
+  for(j in 150:251){
+    sampleVector85 <- append(sampleVector85, sample(LSL85[j,],1))
+    sampleVector45 <- append(sampleVector45, sample(LSL45[j,],1))
+    sampleVector26 <- append(sampleVector26, sample(LSL26[j,],1))
+  }
+  
+  #This creates the plot - we only want to create one
+  if(i == 1){
+    plot(time_proj[150:251], sampleVector85, type = "n", main = "Random Sample of Projected Sea Levels for Three RCP Scenarios", xlab = "Year", ylab = "Total Sea Level [m]")
+    
+    legend("topleft", c("RCP85", "RCP45", "RCP26"), fill = c("red", "light blue", "blue"))
+  }
+  
+  #Fit a lowess line to each of the 20 sample vectors for each of the LSL's (60 lines total)
+  lines(lowess(time_proj[150:251], sampleVector85), col = "red")
+  lines(lowess(time_proj[150:251], sampleVector45), col = "light blue")
+  lines(lowess(time_proj[150:251], sampleVector26), col = "blue")
+  
+}
 
 ```
 
