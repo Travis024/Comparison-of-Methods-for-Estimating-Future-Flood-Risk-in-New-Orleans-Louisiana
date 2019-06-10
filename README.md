@@ -7,7 +7,7 @@ As sea levels and storm surges rise due to climate change, this project will hig
 
 ## Week 1
 
-Work through starter problems to get a better feel for the R programming language, the extRemes packages, and NetCDF files (a common file type used in meteorology, climatology, and oceanography)
+Work through starter problems to get a better feel for the R programming language (including statistical functions like quantile, graphig function like polygon, and list objects), the extRemes packages, and NetCDF files (a common file type used in meteorology, climatology, and oceanography). This will begin to give me an idea of the types of data we'll be using in our analysis and hot to clean and work with that data.
 
 View answers to the Starter Problems in the "StarterProblems.Rmd" file.
 
