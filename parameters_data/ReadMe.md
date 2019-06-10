@@ -1,1 +1,1 @@
-This is the folder for parameters data frame of different GEV models
+This is the folder contains parameters data frames of different GEV models and R codes
