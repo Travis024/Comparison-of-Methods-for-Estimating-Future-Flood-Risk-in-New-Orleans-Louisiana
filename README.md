@@ -14,4 +14,8 @@ View answers to the Starter Problems in the "StarterProblems.Rmd" file.
 Learn more about the exTremes package: https://cran.r-project.org/web/packages/extRemes/extRemes.pdf
 Learn more about NetCDF files: https://www.unidata.ucar.edu/software/netcdf/
 
+## Week 2
 
+Begin analysing prior reserach conducted by Mingxuan Zang concerning 8 different GEV models and how well they fit the data for the past 40 years of sea levels in New Orleans, Louisiana. These models contain mu (location), sigma (scale), and xi (shape) parameters as either stationary (denoted with a '0') or non-stationary (denoted with a '1'). Mingxuan worked on this research with Tony previously.
+
+This data is uplaoded in the folder parameters_data.
