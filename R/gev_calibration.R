@@ -35,6 +35,10 @@ niter.deoptim <- 100   # number of DE iterations
 F.deoptim <- 0.8
 CR.deoptim <- 0.9
 
+# Convergence and autocorrelation check
+gr.max <- 1.1
+lag.max <- 2000
+acf.max <- 0.05
 
 ## Install/load relevant libraries
 library(extRemes)
@@ -195,7 +199,7 @@ save(list=c("priors","deoptim.priors"), file=filename.priors)
 ##=============================================================================
 ## Calibration for NOLA data
 
-niter_mcmc <- 1e5 # note that this is enough for stationary model, but maybe not quite enough for 5- or 6-parameter nonstationary
+niter_mcmc <- 5e5 # note that this is enough for stationary model, but maybe not quite enough for 5- or 6-parameter nonstationary
 nnode_mcmc <- 2   # with 2 chains, 1e5 iterations requires 106 sec on laptop
 gamma_mcmc <- 0.66
 accept_mcmc_few <- 0.44         # optimal for only one parameter
@@ -232,6 +236,10 @@ for (mm in 1:nmodel) {
   tend <- proc.time()
   timer <- round((tend-tbeg)[3]/60,2)
   print(paste(nnode_mcmc," chains x ",niter_mcmc," iterations took ",timer," minutes",sep=""))
+  print(paste('saving MCMC output as .RData file...',sep=''))
+  today=Sys.Date(); today=format(today,format="%d%b%Y")
+  filename.mcmc <- paste(output.dir,'mcmc_output_',today,'.RData', sep='')
+  save("amcmc_out", file=filename.mcmc)
 }
 ##=============================================================================
 
@@ -239,6 +247,112 @@ for (mm in 1:nmodel) {
 
 ##=============================================================================
 ## Burn-in and thinning
+
+##=========##
+## Burn-in ##
+##=========##
+
+niter.test <- seq(from=1e5, to=(niter_mcmc-1), by=1e5)
+gr.test <- matrix(NA, nrow=nmodel, ncol=length(niter.test))
+
+if(nnode_mcmc == 1) {
+  # don't do GR stats, just cut off first half of chains
+  print('only one chain; will lop off first half for burn-in instead of doing GR diagnostics')
+} else if(nnode_mcmc > 1) {
+  # this case is FAR more fun
+  for (mm in 1:nmodel) {
+    # accumulate the names of the soon-to-be mcmc objects
+    string.mcmc.list <- 'mcmc1'
+    for (cc in 2:nnode_mcmc) {
+      string.mcmc.list <- paste(string.mcmc.list, ', mcmc', cc, sep='')
+    }
+    for (i in 1:length(niter.test)) {
+      for (cc in 1:nnode_mcmc) {
+        # convert each of the chains into mcmc object
+        eval(parse(text=paste('mcmc',cc,' <- as.mcmc(amcmc_out[[mm]][[cc]]$samples[(niter.test[i]+1):niter_mcmc,])', sep='')))
+      }
+      eval(parse(text=paste('mcmc_chain_list = mcmc.list(list(', string.mcmc.list , '))', sep='')))
+      gr.test[mm,i] <- as.numeric(gelman.diag(mcmc_chain_list, autoburnin=FALSE)[2])
+    }
+  }
+} else {print('error - n_node000 < 1 makes no sense')}
+
+# hack off first ifirst iterations for burn in
+ifirst <- NA
+if (nnode_mcmc==1) {
+  ifirst <- round(0.5*niter_mcmc)
+} else {
+  i <- 1
+  CONVERGED <- all(gr.test[,i] < gr.max)
+  while (!CONVERGED) {
+    i <- i+1
+    CONVERGED <- all(gr.test[,i] < gr.max)
+  }
+  ifirst <- niter.test[i]
+}
+
+chains_burned <- vector("list", nmodel)
+if (nnode_mcmc > 1) {
+  for (mm in 1:nmodel) {
+    chains_burned[[mm]] <- vector('list', nnode_mcmc)
+    for (cc in 1:nnode_mcmc) {
+      chains_burned[[mm]][[cc]] <- amcmc_out[[mm]][[cc]]$samples[(ifirst+1):niter_mcmc,]
+    }
+  }
+} else {
+  for (mm in 1:nmodel) {
+    chains_burned[[mm]] <- amcmc_out[[mm]]$samples[(ifirst+1):niter_mcmc,]
+  }
+}
+
+##==========##
+## Thinning ##
+##==========##
+
+maxlag <- 0
+
+for (mm in 1:nmodel) {
+  for (cc in 1:nnode_mcmc) {
+    for (pp in 1:length(gev_models[[mm]]$parnames)) {
+      acf_tmp <- acf(chains_burned[[mm]][[cc]][,pp], lag.max=lag.max, plot=FALSE)
+      new <- acf_tmp$lag[which(acf_tmp$acf < acf.max)[1]]
+      if (maxlag < new) {
+        print(paste(mm,cc,pp,"Updating maxlag to",new))
+        maxlag <- new
+      }
+    }
+  }
+}
+
+chains_burned_thinned <- chains_burned # initialize
+parameters_posterior <- vector("list", nmodel)
+if (nnode_mcmc > 1) {
+  for (mm in 1:nmodel) {
+    for (cc in 1:nnode_mcmc) {
+      chains_burned_thinned[[mm]][[cc]] <- chains_burned[[mm]][[cc]][seq(from=1, to=(niter_mcmc - ifirst), by=maxlag),]
+    }
+    parameters_posterior[[mm]] <- chains_burned_thinned[[mm]][[1]]
+    for (cc in 2:nnode_mcmc) {
+      parameters_posterior[[mm]] <- rbind(parameters_posterior[[mm]], chains_burned_thinned[[mm]][[cc]])
+    }
+  }
+} else {
+  for (mm in 1:nmodel) {
+    chains_burned_thinned[[mm]] <- chains_burned[[mm]][seq(from=1, to=nrow(chains_burned), by=maxlag),]
+    parameters_posterior[[mm]] <- chains_burned_thinned[[mm]]
+  }
+  
+}
+##=============================================================================
+
+
+
+##=============================================================================
+## Write parameters file
+
+today=Sys.Date(); today=format(today,format="%d%b%Y")
+save(parameters_posterior, file=paste(output.dir,"mcmc_output_processed_",today,".RData", sep=""))
+##=============================================================================
 
 
 
