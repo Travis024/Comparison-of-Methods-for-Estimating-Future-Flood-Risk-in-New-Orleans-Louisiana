@@ -1,4 +1,4 @@
-## likelihood_function.R
+## likelihood.R
 
 #===============================================================================
 # log(prior) for gev model
@@ -63,18 +63,27 @@ log_like_gev <- function(parameters,     # set of GEV parameters (possibly nonst
 
 
 #===============================================================================
+# negative log(likelihood) for gev model
+#===============================================================================
+neg_log_like_gev <- function(parameters,     # set of GEV parameters (possibly nonstationary)
+                             parnames,       # gev_models[[m]]$parnames
+                             data_calib,     # processing_output[,"lsl_max"]
+                             auxiliary=NULL  # time series of same length as data_calib
+){
+  return(-log_like_gev(parameters,parnames,data_calib,auxiliary))
+}
+#===============================================================================
+
+
+#===============================================================================
 # log(posterior) for gev model
 #===============================================================================
-log_post_gev <- function(parameters,
-                         parnames,
-                         data_calib,
-                         priors,
-                         auxiliary
-){
+log_post_gev <- function(parameters, parnames, data_calib, priors, auxiliary){
+  
   lpost <- 0
   llik <- 0
   lpri <- 0
-  
+
   # calculate prior
   lpri <- log_prior_gev(parameters=parameters,
                         parnames=parnames,
