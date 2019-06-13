@@ -17,7 +17,7 @@ log_prior_gev <- function(parameters,
       lpri <- lpri + dgamma(x=parameter.value, shape=priors[[par]]$shape, rate=priors[[par]]$rate, log=TRUE)
     } else if(priors[[par]]$type=='uniform') {
       lpri <- lpri + dunif(x=parameter.value, min=priors[[par]]$lower, max=priors[[par]]$upper, log=TRUE)
-    }
+    } else {print("ERROR: unknown priors type")}
   }
   return(lpri)
 }

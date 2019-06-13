@@ -30,6 +30,7 @@ threshold_missing_data <- 0.9 # filter out years that are missing more data than
 fillvalue <- -32767
 
 # MLE optimization for priors
+type.of.priors <- "uniform" # "normalgamma" or "uniform"
 NP.deoptim <- 100      # number of DE population members (at least 10*[# parameters])
 niter.deoptim <- 100   # number of DE iterations
 F.deoptim <- 0.8
@@ -53,7 +54,7 @@ library(ncdf4)
 
   
 ##=============================================================================
-## helper functions...
+## helper functions and some set up
 
 # for processing data
 source("data_processing.R")
@@ -160,9 +161,15 @@ print('fitting prior distributions to the MLE parameters...')
 #    (or do empirical sd? might underestimate though - take wider)
 
 # assign which parameters have which priors
-gamma.priors <- c('mu','mu0','sigma','sigma0')
-normal.priors <- c('mu1','sigma1','xi','xi0','xi1')
-uniform.priors <- NULL
+if (type.of.priors=="normalgamma") {
+  gamma.priors <- c('mu','mu0','sigma','sigma0')
+  normal.priors <- c('mu1','sigma1','xi','xi0','xi1')
+  uniform.priors <- NULL
+} else if (type.of.priors=="uniform") {
+  gamma.priors <- NULL
+  normal.priors <- NULL
+  uniform.priors <- c('mu','mu0','mu1','sigma','sigma0','sigma1','xi','xi0','xi1')
+} else {print("ERROR: unknown type.of.priors")}
 
 priors <- vector('list', nmodel)
 for (mm in 1:nmodel) {
@@ -170,7 +177,7 @@ for (mm in 1:nmodel) {
   for (par in gev_models[[mm]]$parnames) {
     priors[[mm]][[par]] <- vector('list', 3) # type, and 2 distribution parameters
     if(!is.na(match(par, uniform.priors))) {
-      names(priors[[mm]][[par]]) <- c('type','shape','rate'); priors[[mm]][[par]]$type <- 'uniform'
+      names(priors[[mm]][[par]]) <- c('type','lower','upper'); priors[[mm]][[par]]$type <- 'uniform'
       priors[[mm]][[par]]$lower <- gev_models[[mm]]$bound_lower[match(par,gev_models[[mm]]$parnames)]
       priors[[mm]][[par]]$upper <- gev_models[[mm]]$bound_upper[match(par,gev_models[[mm]]$parnames)]
     } else if(!is.na(match(par, gamma.priors))) { # shape=alpha, rate=beta, mean=shape/rate, var=shape/rate^2
@@ -190,7 +197,7 @@ print('...done.')
 print(paste('saving priors and DE optim output as .rds files to read and use later...',sep=''))
 
 today=Sys.Date(); today=format(today,format="%d%b%Y")
-filename.priors <- paste(output.dir,'surge_priors_',today,'.RData', sep='')
+filename.priors <- paste(output.dir,'surge_priors_',type.of.priors,"_",today,'.RData', sep='')
 save(list=c("priors","deoptim.priors"), file=filename.priors)
 ##=============================================================================
 
@@ -205,6 +212,7 @@ gamma_mcmc <- 0.66
 accept_mcmc_few <- 0.44         # optimal for only one parameter
 accept_mcmc_many <- 0.234       # optimal for many parameters
 amcmc_out <- vector("list", nmodel)
+filename.mcmc <- paste(output.dir,'mcmc_output_',type.of.priors,"_",today,'.RData', sep='')
 
 for (mm in 1:nmodel) {
   if (mm > 1) {auxiliary <- trimmed_forcing(data.nola[,"year"], time_forc, temperature_forc)$temperature
@@ -237,8 +245,6 @@ for (mm in 1:nmodel) {
   timer <- round((tend-tbeg)[3]/60,2)
   print(paste(nnode_mcmc," chains x ",niter_mcmc," iterations took ",timer," minutes",sep=""))
   print(paste('saving MCMC output as .RData file...',sep=''))
-  today=Sys.Date(); today=format(today,format="%d%b%Y")
-  filename.mcmc <- paste(output.dir,'mcmc_output_',today,'.RData', sep='')
   save("amcmc_out", file=filename.mcmc)
 }
 ##=============================================================================
@@ -341,7 +347,11 @@ if (nnode_mcmc > 1) {
     chains_burned_thinned[[mm]] <- chains_burned[[mm]][seq(from=1, to=nrow(chains_burned), by=maxlag),]
     parameters_posterior[[mm]] <- chains_burned_thinned[[mm]]
   }
-  
+}
+
+# Name the columns of the posterior parameters for reading easier later
+for (mm in 1:nmodel) {
+  colnames(parameters_posterior[[mm]]) <- gev_models[[mm]]$parnames
 }
 ##=============================================================================
 
@@ -350,8 +360,8 @@ if (nnode_mcmc > 1) {
 ##=============================================================================
 ## Write parameters file
 
-today=Sys.Date(); today=format(today,format="%d%b%Y")
-save(parameters_posterior, file=paste(output.dir,"mcmc_output_processed_",today,".RData", sep=""))
+filename.posterior <- paste(output.dir,"mcmc_output_processed_",type.of.priors,"_",today,".RData", sep="")
+save(parameters_posterior, file=filename.posterior)
 ##=============================================================================
 
 
