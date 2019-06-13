@@ -375,18 +375,19 @@ surge_factor <- ncvar_get(ncin, "surge_factor")
 randomIndex <- sample(1:12586,1)
 
 #Plot the gev with the parameters at that index
-plot(200:1300, devd(200:1300, gev_stat[randomIndex,1], gev_stat[randomIndex,2], gev_stat[randomIndex,3]), type = "l", col = "red", main = "Army Corps of Engineers Method for Projecting Increases in Storm Surge Hazard", xlab = "Sea Level [meters]", ylab = "f(x)", cex.main = 1)
+plot(200:1300, devd(200:1300, gev_stat[randomIndex,1], gev_stat[randomIndex,2], gev_stat[randomIndex,3]), type = "l", col = "red", main = "Army Corps of Engineers Method for Projecting Increases in Storm Surge Hazard", xlab = "Sea Level [mm]", ylab = "f(x)", cex.main = 1)
 
 
 #Then plot that same gev but shifted
 #First find the amount to shift by
-surgeIncrease <- surge_factor[randomIndex] * projectedChange85[randomIndex]
+surgeIncrease <- surge_factor[randomIndex] * projectedChange85[randomIndex] * 1000
 
-#Sorge the shifted GEV
-shiftedGEV <- devd(200:1300, gev_stat[randomIndex,1], gev_stat[randomIndex,2], gev_stat[randomIndex,3]) + surgeIncrease
+#Set the new boundaries for our shifted graph
+newXMin <- 200 - surgeIncrease
+newXMax <- 1300 + surgeIncrease
 
 #Add the shifted GEV to the plot
-lines(200:1300, shiftedGEV, col = "blue")
+lines(newXMin:newXMax + surgeIncrease, devd(newXMin:newXMax, gev_stat[randomIndex,1], gev_stat[randomIndex,2], gev_stat[randomIndex,3]), col = "blue", type = "l")
 
 
 ```
