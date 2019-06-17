@@ -12,6 +12,7 @@ Work through starter problems to get a better feel for the R programming languag
 View answers to the Starter Problems in the "StarterProblems" folder.
 
 Learn more about the exTremes package: https://cran.r-project.org/web/packages/extRemes/extRemes.pdf
+
 Learn more about NetCDF files: https://www.unidata.ucar.edu/software/netcdf/
 
 ## Week 2
