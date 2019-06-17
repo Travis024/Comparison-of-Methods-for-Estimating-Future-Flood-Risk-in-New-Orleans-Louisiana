@@ -20,4 +20,4 @@ Begin analysing prior reserach conducted by Mingxuan Zang concerning 8 different
 
 The goal of my work is first to read in 8 files (one for each model) each containing 2064 sets of parameters. For each set of paramteters, I will find the '1 in 100' flood risk point, or the point where we risk seeing a flood of a height X every 1 in 100 years. I will do this for the years 2017 and 2065 to see how the '1 in 100' flood risk point changes over time.
 
-This portion of the porject can be found in the 'x100Calculations' folder.
+This portion of the project can be found in the 'x100Calculations' folder.
