@@ -1,0 +1,394 @@
+---
+title: "Starter Problems Code"
+---
+```{r}
+#PROBLEM 1
+
+#Plot a probability density function of a GEV
+#Use either revd, devd, qevd, or pevd
+#Bounds on horizontal axis of [0,8]
+
+library(extRemes)
+x = revd(10000,loc=2,scale=0.75,shape=0)
+hist(x,prob=T)
+lines(density(x))
+```
+
+```{r}
+#PROBLEM 3
+
+#Find the CDF of the above PDF where loc = 2, scale = 0.75, shape = 0
+#Evaluate at X = 4 (in this case, the fifth element)
+#Subtract from 1 because pevd gives us the probability UNDER 4
+cdfVector <- pevd(0:8, 2, 0.75, 0)
+1-cdfVector[5]
+```
+
+```{r}
+#PROBLEM 8
+
+#Set up a data frame for parameter values and years 2000 - 2100
+#Make a plot of μ(t)
+
+#Begin by creating the data frame
+#Vectors of each paramter and the years
+#Fill in mu using the given equation
+	year <- c(2000:2100)
+  sigma <- seq(0.75, 0.75, length.out = 101)
+	xi <- seq(0, 0, length.out = 101)
+	mu <- c()
+	
+mu[1] = 2
+for(i in 2:101) {mu[i] = mu[1] + .004 * i} 
+parameterData <- data.frame(year, mu, sigma, xi)
+
+#Now, create the graph
+	with(parameterData, plot(year, mu, type = "l", xlab = "Year", ylab = "μ(t) [meters]"))
+	axis(side = 1, at=c(2010, 2030, 2050, 2070, 2090), labels = c("", "", "", "", ""), tck = -0.05)
+```
+
+```{r}
+#PROBLEM 9
+
+#Compute the PDF of an evenly spaced grid of sea levels for each year
+#Store the PDF values in a dat frame
+#One dimension corresponds to sea-level
+#The other corresponds to the year
+
+#Begin by creating the sea levels
+seaLevelValues <- seq(0, 8, by = 0.05)
+
+#Now create a data frame; 1:101 represents 2000 - 21000
+seaLevelPDF <- as.data.frame(matrix(nrow = 17, ncol = 101))
+
+#Fill in the PDF using the changing parameters and the devd function
+for(i in 1:101){
+    newMu = parameterData[i, "mu"]
+    newSigma = parameterData[i, "sigma"]
+    newXi = parameterData[i, "xi"]
+    seaLevelVector = devd(seaLevelValues, newMu, newSigma, newXi)
+    for(j in 1:161){
+        seaLevelPDF[j,i] = seaLevelVector[j]
+    }
+}
+```
+
+```{r}
+#PROBLEM 10
+
+#Make a plot of 2000, 2020, 2040, 2060 2080, 2100
+#All should be on the same graph
+
+
+#Start by making a plot - graph the pdf for 2000 first
+#This function contains all labelling
+plot(seaLevelValues, seaLevelPDF[,1], col = "blue", type = "l", main = "Probability Density Functions Over Time Given Changing Parameters", xlab = "Sea Level [meters]", ylab = "f(x)")
+
+#Create a legen for the plot
+legend("topright", "Year", c("2000", "2020", "2040", "2060", "2080", "2100"), fill = c("blue", "red", "yellow", "green", "orange", "pink"), horiz = TRUE, cex = .75)
+
+#To graoh on the same plot, use the lines() function for the remaining 5 PDF's
+lines(seaLevelValues, seaLevelPDF[,21], col = "red")
+
+lines(seaLevelValues, seaLevelPDF[,41], col = "yellow")
+
+lines(seaLevelValues, seaLevelPDF[,61], col = "green")
+
+lines(seaLevelValues, seaLevelPDF[,81], col = "orange")
+
+lines(seaLevelValues, seaLevelPDF[,101], col = "pink")
+
+```
+
+```{r}
+#PROBLEM 11
+
+#For each year, compute the probabiity of a seas level such that X > 4
+#Then make a plot of annual excedance probability over time
+
+#Create a vector to store all probabilities
+annualExcedance <- c()
+
+#Calculate all of the probabilities and append to our vector
+for(i in 1:101){
+  
+  #Get the new parameter values for the given year
+  newMu <- parameterData[i, "mu"]
+  newSigma <- parameterData[i, "sigma"]
+  newXi <- parameterData[i, "xi"]
+  
+  #Find the probability at X = 4 using the index 81 (since sealevels steps by 0.05 from 0 to 8)
+  #Subtract from 1 because pevd gives us the probaility UNDER a given point
+  probabilityVector = pevd(seaLevelValues, newMu, newSigma, newXi)
+  excedanceProbability = 1 - probabilityVector[81]
+  
+  #Append to the vector
+  annualExcedance <- append(annualExcedance, excedanceProbability)
+}
+
+
+#Create the graph
+plot(year, annualExcedance, type = "l", main = "Annual Exceedance Probability Over Time", xlab = "Sea Level [meters]", ylab = "Annual Exceedance Probability")
+
+```
+
+```{r}
+#PROBLEM 12
+
+#First, read in a NetCDF file
+#To install ncdf4, use the following:
+#install.packages(c('ncdf4'))
+
+library(ncdf4)
+
+#Ensure the file is in the working directory
+#getwd()
+
+#Open the NetCDF file and store in a variable
+ncin <- nc_open("StarterProblemsNCDF.nc")
+
+
+#To view the contents of the file, use the following line
+#print(ncin)
+
+#Read in from the NetCDF file
+gev_stat <- ncvar_get(ncin,"gev_stat")
+
+#View the head - parameters stored as location, scale shape
+head(gev_stat)
+
+#Now, make some plots using the different parameters
+#Again, we use plot() first and then lines() to get all plots on the same axis
+#Note that our range of sea levels is about 300 to 1300 meters
+plot(200:1300, devd(200:1300, gev_stat[1,1], gev_stat[1,2], gev_stat[1,3]), type = "l", col = "red", main = "Varying Probability Density Functions From NetCDF With Changing Parameters", xlab = "Sea Level [meters]", ylab = "f(x)", cex.main = 1)
+
+lines(200:1300, devd(200:1300, gev_stat[10,1], gev_stat[10,2], gev_stat[10,3]), type = "l", col = "green")
+
+lines(200:1300, devd(200:1300, gev_stat[20,1], gev_stat[20,2], gev_stat[20,3]), type = "l", col = "blue")
+
+lines(200:1300, devd(200:1300, gev_stat[30,1], gev_stat[30,2], gev_stat[30,3]), type = "l", col = "purple")
+
+lines(200:1300, devd(200:1300, gev_stat[40,1], gev_stat[40,2], gev_stat[40,3]), type = "l", col = "orange")
+
+#Finally, close the file
+nc_close(ncin)
+
+
+```
+
+```{r}
+#PROBLEM 13
+
+#Read in another NetCDF file and analysze some of its characteristics
+
+ncin <- nc_open("StarterProblemsNCDF2.nc")
+
+#Look at the file to get a better feel for it
+#print(ncin)
+
+#We are mainly interested in LocalSeaLevel_gamma_RCP85 and time_proj
+LSL85 <- ncvar_get(ncin, "LocalSeaLevel_gamma_RCP85")
+time_proj <- ncvar_get(ncin, "time_proj")
+
+#Poke around with these two varaibles a bit
+dim(LSL85)
+LSL85[151,800]
+length(time_proj)
+range(time_proj)
+
+#It appears as though each column in LSL85 is a year between the dates 1850 and 2100
+#It appears as though each row in LSL85 is a projection of the change in sea level from the year 2000 using changing GEV parameters and surge factors
+```
+
+```{r}
+#PROBLEM 14
+
+#Now, using the same NetCDF file, Randomly sample and plot 20 simulations of LSL from each of the RCP2.6, 4.5 and 8.5 scenarios
+
+#Make sure each RCP is loaded in
+LSL85 <- ncvar_get(ncin, "LocalSeaLevel_gamma_RCP85")
+LSL45 <- ncvar_get(ncin, "LocalSeaLevel_gamma_RCP45")
+LSL26 <- ncvar_get(ncin, "LocalSeaLevel_gamma_RCP26")
+
+#We want to make 20 lines for each LSL, so our outer loop runs 20 times
+for(i in 1:20){
+  
+  #For each LSL we initialize a vector that will store the points we sample
+  sampleVector85 <- c()
+  sampleVector45 <- c()
+  sampleVector26 <- c()
+  
+  #For each year from 2000 to 2100 we pull a sample point from the LSL
+  for(j in 151:251){
+    sampleVector85 <- append(sampleVector85, sample(LSL85[j,],1))
+    sampleVector45 <- append(sampleVector45, sample(LSL45[j,],1))
+    sampleVector26 <- append(sampleVector26, sample(LSL26[j,],1))
+  }
+  
+  #This creates the plot - we only want to create one
+  if(i == 1){
+    plot(time_proj[151:251], sampleVector85, type = "n", main = "Random Sample of Projected Sea Levels for Three RCP Scenarios", xlab = "Year", ylab = "Total Sea Level [m]")
+    
+    legend("topleft", c("RCP85", "RCP45", "RCP26"), fill = c("red", "light blue", "blue"))
+  }
+  
+  #Fit a lowess line to each of the 20 sample vectors for each of the LSL's (60 lines total)
+  #Use a lowess line because taking a random sample just gives us a bunch of points
+  #We want to fit a nice curve to those points
+  lines(lowess(time_proj[151:251], sampleVector85), col = "red")
+  lines(lowess(time_proj[151:251], sampleVector45), col = "light blue")
+  lines(lowess(time_proj[151:251], sampleVector26), col = "blue")
+  
+}
+
+```
+
+```{r}
+#PROBLEM 15
+
+#Create a list containing 3 elements - each of the RCP scenarios
+#Practice using the quantile function by finding 2.5th, 50th, and 97.5 quantile for 2000, 2050, and 2100 for each
+#Then, fill a matrix of quantiles for each of the 251 years for each RCP scenario
+
+#First, create the list
+rcpList <- vector("list", length = 3)
+names(rcpList) <- c("rcp26", "rcp45", "rcp85")
+
+#Now, use the quantile function 
+#The "probs" parameter spceifies the quantiles that we want
+print("LSL26")
+quantile(LSL26[151,], probs = c(.025, .5, .975))
+quantile(LSL26[201,], probs = c(.025, .5, .975))
+quantile(LSL26[251,], probs = c(.025, .5, .975))
+
+print("LSL45")
+quantile(LSL45[151,], probs = c(.025, .5, .975))
+quantile(LSL45[201,], probs = c(.025, .5, .975))
+quantile(LSL45[251,], probs = c(.025, .5, .975))
+
+print("LSL85")
+quantile(LSL85[151,], probs = c(.025, .5, .975))
+quantile(LSL85[201,], probs = c(.025, .5, .975))
+quantile(LSL85[251,], probs = c(.025, .5, .975))
+
+#Create empty matrices for each scenario
+#The dimensions of a matrix are as follows: 3(rows)x251(columns)
+#3 for each of the qauntiles, 251 for each of the years
+rcp26 <- matrix(nrow = 3, ncol = 251)
+rcp45 <- matrix(nrow = 3, ncol = 251)
+rcp85 <- matrix(nrow = 3, ncol = 251)
+
+#Assign the matrices to the names currently in our list
+rcpList[["rcp26"]] <- rcp26
+rcpList[["rcp45"]] <- rcp45
+rcpList[["rcp85"]] <- rcp85
+
+#The following are two examples of how to access a matrix element from the list
+#rcpList$rcp26[1,1]
+#rcpList[[1]][1,1]
+
+#This for lopp runs over all 251 years
+#In each year, the quantile function is used on each scenario and stored in the matrix
+#Thus, it is working column by column to fill the matrices
+for (i in 1:251){
+    rcpList[[1]][,i] <- quantile(LSL26[i,], probs = c(.025, .5, .975))
+    rcpList[[2]][,i] <- quantile(LSL45[i,], probs = c(.025, .5, .975))
+    rcpList[[3]][,i] <- quantile(LSL85[i,], probs = c(.025, .5, .975))
+  }
+
+
+
+#The following plot graphs the calculated 2.5th quantile over time, then the 50th quantile, then the 97.5th quantile
+#It does this for each of the three scenarios (so 9 lines total)
+
+#Begin plotting by creating the plot, which limits our axes so that we see from 2000-2100
+#Also add an appropriate legend
+plot(time_proj, rcpList[[1]][1,], type = "l", col = "white", ylim = c(0, 2), xlim = c(2000,2100), main = "Projected New Orleans Sea Level Using 3 RCP Projections",ylab = "Total Sea Level [meters]", xlab = "Year")
+legend("topleft", c("RCP26", "RCP45", "RCP85"), fill = c("red", "green", "blue"))
+
+#Then, use the lines function to add the remaining lines to the plot
+lines(time_proj, rcpList[[1]][2,], type = "l", col = "white")
+lines(time_proj, rcpList[[1]][3,], type = "l", col = "white")
+
+lines(time_proj, rcpList[[2]][1,], type = "l", col = "white")
+lines(time_proj, rcpList[[2]][2,], type = "l", col = "white")
+lines(time_proj, rcpList[[2]][3,], type = "l", col = "white")
+
+lines(time_proj, rcpList[[3]][1,], type = "l", col = "white")
+lines(time_proj, rcpList[[3]][2,], type = "l", col = "white")
+lines(time_proj, rcpList[[3]][3,], type = "l", col = "white")
+
+#Polygon() is used to color in the area between two lines (in this case the 2.5th and 97.5th percentiles)
+#I ended up using the answer from the following link to help me figure this one out
+#http://r.789695.n4.nabble.com/fill-in-area-between-2-lines-with-a-color-td863620.html
+
+#Also note that for color, we use the rgb value so that we can use the alpha paramter to make colors transparent
+#This makes it so we can see through overlapping shaded areas
+polygon(c(time_proj, rev(time_proj)), c(rcpList[[1]][1,], rev(rcpList[[1]][3,])), col = rgb(255, 0, 0, max = 255, alpha = 75), border = NA)
+
+polygon(c(time_proj, rev(time_proj)), c(rcpList[[2]][1,], rev(rcpList[[2]][3,])), col = rgb(0, 255, 0, max = 255, alpha = 75), border = NA)
+
+polygon(c(time_proj, rev(time_proj)), c(rcpList[[3]][1,], rev(rcpList[[3]][3,])), col = rgb(0, 0, 255, max = 255, alpha = 75), border = NA)
+
+
+```
+
+```{r}
+#PROBLEM 16
+
+#For each of the RCP8.5 Projections, calculate change in sea level from 2015 - 2065
+#Make a density histogram of these projections
+
+#Create an empty vector to store the calculated changes in sea level
+projectedChange85 <- c()
+
+
+#Create a for loop to run through all 12,586 projections (each using different parameters)
+for(i in 1:12586){
+  
+  seaLevelChange = LSL85[216, i] - LSL85[166, i]
+  projectedChange85 <- append(projectedChange85, seaLevelChange)
+}
+
+#Create a density histogram using freq = FALSE
+#Also graph a density line just to have both
+hist(projectedChange85, freq = FALSE, main = "Histogram of Projected Change in New Orleans Sea Level From 2015 to 2065", xlab = "Projected Sea Level Change [ meters]", cex.main = 0.97)
+lines(density(projectedChange85))
+```
+
+```{r}
+#PROBLEM 17
+
+#Pick a random index and plot a GEV from the gev_stat matrix
+#Then, on the same plot, shift the above by...
+#surge_factor[idx]*(change in LSL from 2015 to 2065)[idx]
+
+#Open the NetCDF file and store in a variable
+ncin <- nc_open("StarterProblemsNCDF.nc")
+ncin
+
+#Read in from the NetCDF file
+gev_stat <- ncvar_get(ncin,"gev_stat")
+surge_factor <- ncvar_get(ncin, "surge_factor")
+
+#Pick a random index
+randomIndex <- sample(1:12586,1)
+
+#Plot the gev with the parameters at that index
+plot(200:1300, devd(200:1300, gev_stat[randomIndex,1], gev_stat[randomIndex,2], gev_stat[randomIndex,3]), type = "l", col = "red", main = "Army Corps of Engineers Method for Projecting Increases in Storm Surge Hazard", xlab = "Sea Level [mm]", ylab = "f(x)", cex.main = 1)
+
+
+#Then plot that same gev but shifted
+#First find the amount to shift by
+surgeIncrease <- surge_factor[randomIndex] * projectedChange85[randomIndex] * 1000
+
+#Set the new boundaries for our shifted graph
+newXMin <- 200 - surgeIncrease
+newXMax <- 1300 + surgeIncrease
+
+#Add the shifted GEV to the plot
+lines(newXMin:newXMax + surgeIncrease, devd(newXMin:newXMax, gev_stat[randomIndex,1], gev_stat[randomIndex,2], gev_stat[randomIndex,3]), col = "blue", type = "l")
+
+
+```
+
