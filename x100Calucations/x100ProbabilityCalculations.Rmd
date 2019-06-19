@@ -48,7 +48,7 @@ nc_close(ncdata)
 time_proj <- floor(time_proj/10000)
 
 # read the historical forcing from NOAA
-data.tmp <- read.table('noaa_temperature_1880-.csv', header = TRUE, sep=',')
+data.tmp <- read.table('noaa_temperature_1880-2017.csv', header = TRUE, sep=',')
 time_hist <- data.tmp$Year
 temperature_hist <- data.tmp$Value
 
@@ -93,6 +93,13 @@ Tmax <- max(temperature_forc)
 #Note that because time_proj values start at 1850, but temperature_proj's indices start at 1, we subtract 1849
 #Each function outputs the new parameter value
 
+
+# TW:  
+# - avoid assuming temperature_proj is an implicit input by making it an explicit function argument
+# - can avoid hard-coding 1849 by instead assuming time and temperature inputs are same-length
+#   arrays and finding the proper index/indices as temperature[which(time==time_i_want)]
+#   (where temperature and time are arrays and time_i_want is the year we want the projection in)
+
 muNonstat <- function(mu0, mu1, time){
   newMu <- mu0 + mu1 * temperature_proj[time - 1849]
 }
@@ -107,6 +114,13 @@ xiNonstat <- function(xi0, xi1, time){
 ```
 
 ```{r}
+# TW: 
+# - can simply plug in 2000 as the first argument into pevd
+# - can reference parameters as (e.g.) params1[i,"m"] to avoid confusion, more readable
+# - avoid hard-coding ensemble size, 2064, here and throughout
+# - want the exceedance probability, so 1-pevd(...)
+# - try to set this up using sapply(...) instead of the for loop
+
 #Analyze when all parameters are staionary, params1
 #Go through all sets of parameters and calcuate the pevd for each
 #pevdVector[2000] gives the probability of a sea level equal to or less than 2000mm
@@ -118,6 +132,13 @@ for(i in 1:2064){
 #Analyze when mu is non-stationary, params2
 #First calculate the new value of mu using the year 2065
 #Then use the same format as  explained in params1
+
+# TW:
+# - avoid hard-coding 216 here and throughout. instead, do:  
+# year_proj <- 2016 # or whatever year you want
+# newMu <- muNonstat(params2[i,"u0"], params2[i,"u1"], time_proj[which(time_proj==2016)])
+# (or something like that; probably the nonstat functions will change a little)
+
 params2Vector <- c()
 for(i in 1:2064){
   newMu <- muNonstat(params2[i,2], params2[i,3], time_proj[216])
