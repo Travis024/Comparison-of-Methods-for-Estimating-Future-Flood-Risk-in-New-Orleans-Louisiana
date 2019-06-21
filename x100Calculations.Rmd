@@ -1,0 +1,207 @@
+---
+title: "Torline - 2019 - x100Calculations"
+author: "Travis Torline"
+date: "6/15/2019"
+---
+
+```{r}
+#Begin by loading the packages we'll need to perform our analysis
+library("extRemes")
+library(ncdf4)
+
+#Now, read in all of the CSV files and store them
+params1 <- read.csv(file="../parameters_data/Data Frames/params1.csv", header=TRUE, sep=",") #All stationary
+params2 <- read.csv(file="../parameters_data/Data Frames/params2.csv", header=TRUE, sep=",") #Mu nonstationary
+params3 <- read.csv(file="../parameters_data/Data Frames/params3.csv", header=TRUE, sep=",") #Sigma nonstationary
+params4 <- read.csv(file="../parameters_data/Data Frames/params4.csv", header=TRUE, sep=",") #Xi nonstatioanry
+params5 <- read.csv(file="../parameters_data/Data Frames/params5.csv", header=TRUE, sep=",") #Sigma/Xi nonstationary
+params6 <- read.csv(file="../parameters_data/Data Frames/params6.csv", header=TRUE, sep=",") #Mu/Xi nonstationary
+params7 <- read.csv(file="../parameters_data/Data Frames/params7.csv", header=TRUE, sep=",") #Mu/Sigma nonstationary
+params8 <- read.csv(file="../parameters_data/Data Frames/params8.csv", header=TRUE, sep=",") #All nonstationary
+
+
+#The following is code from advisor Tony Wong to read in and normalize historical temperature data from NOAA
+#The variables we'll need from this are 'temperature_proj' and 'time_proj'
+##=============================================================================
+## read_temperature_data.R
+##
+## read temperature data
+## historical from NOAA:
+##   NOAA National Centers for Environmental information, Climate at a Glance:
+##   Global Time Series, published May 2017, retrieved on June 7, 2017 from
+##   http://www.ncdc.noaa.gov/cag/
+## future projections from CRNM under RCP8.5, part of CMIP5
+##
+## Questions? Tony Wong (anthony.e.wong@colorado.edu)
+##=============================================================================
+
+# read the projections temperature forcing from CRNM (CMIP5)
+# note: these are in K, but going to normalize, so will take a difference and
+# it's same as celsius
+ncdata <- nc_open('../parameters_data/global.tas.aann.CNRM-CM5.historical+rcp85.r1i1p1.18500101-21001231.nc')
+temperature_proj <- ncvar_get(ncdata, 'tas')
+time_proj <- ncvar_get(ncdata, 'time')
+nc_close(ncdata)
+
+# 'time' on the netcdf ile is YYYYMMDD, where MMDD is July 2 each year (becuase
+# of the averaging). so pluck off just the years
+time_proj <- floor(time_proj/10000)
+
+# read the historical forcing from NOAA
+data.tmp <- read.table('../parameters_data/noaa_temperature_1880-2017.csv', header = TRUE, sep=',')
+time_hist <- data.tmp$Year
+temperature_hist <- data.tmp$Value
+
+# extend historical back to 1850 with HadCRUT4
+data.tmp = read.table('../parameters_data/HadCRUT.4.4.0.0.annual_ns_avg.txt')
+time_hadcrut = data.tmp[,1]
+temperature_hadcrut = data.tmp[,2]
+
+# normalize all to 1901-2000
+ind_norm <- which(time_hist==1901):which(time_hist==2000)
+temperature_hist <- temperature_hist - mean(temperature_hist[ind_norm])
+
+ind_norm <- which(time_hadcrut==1901):which(time_hadcrut==2000)
+temperature_hadcrut <- temperature_hadcrut - mean(temperature_hadcrut[ind_norm])
+
+ind_norm <- which(time_proj==1901):which(time_proj==2000)
+temperature_proj <- temperature_proj - mean(temperature_proj[ind_norm])
+
+# set up the forcing, wherein the historical starts, then projections finish
+# 1850-1880 -- hadcrut4
+# 1880-2016 -- NOAA historical
+# 2017-2100 -- CRNM projection
+time_forc <- min(time_hadcrut):max(time_proj)
+temperature_forc <- rep(NA, length(time_forc))
+
+ind_hadcrut <- which(time_hadcrut==time_forc[1]):(which(time_hadcrut==time_hist[1])-1)
+ind_hist    <- 1:length(time_hist)
+ind_proj    <- which(time_proj==(max(time_hist)+1)):which(time_proj==max(time_forc))
+
+temperature_forc <- c(temperature_hadcrut[ind_hadcrut],
+                      temperature_hist[ind_hist]      ,
+                      temperature_proj[ind_proj]      )
+
+# maximum temperature serves as an additinoal prior constraint on kappa0, kappa1
+# that is, kappa1 > -kappa0/Tmax (otherwise, kappa = kappa0 + kappa1*T might be
+# negative)  (not necessary for GEV models)
+Tmax <- max(temperature_forc)
+
+
+#Set up the formulas for nonstationary variables
+#Each function takes a stationary parameter, non-stationary parameter, and time as inputs
+#Each function calculates a new parameter value using the projected average temperature
+#The 'which' function finds the index of time_proj with the value we pass through
+#time is passed explicity in case no time is passed through by user
+muNonstat <- function(mu0, mu1, time = 2016){
+  newMu <- mu0 + mu1 * temperature_proj[which(time_proj == time)]
+}
+
+sigmaNonstat <- function(sigma0, sigma1, time = 2016){
+  newSigma <- exp(sigma0 + sigma1 * temperature_proj[which(time_proj == time)])
+}
+
+xiNonstat <- function(xi0, xi1, time = 2016){
+  newXi <- xi0 + xi1 * temperature_proj[which(time_proj == time)]
+}
+```
+
+```{r}
+#Set the year that we're looking to analyze the remaining parameter sets for
+yearProj <- 2016
+
+#Set the limit probability we'll be using
+qevdProb <- 0.99
+
+#Now, go through all 8 sets of parameters
+#Within each set, use the apply() function to go individually over ever row
+#Within each row, take the parameter values and plug into the qevd function using the qevd probability specified above. This will give the value such that qevdProb * 100% of probability lies below that point
+#For non-stationary values, the previously created ...Nonstat() functions will calculate the new value within the qevd call using the mean annual temperature during the year specified by yearProj
+#apply() returns a vector of values, which we will store for future graphing
+
+
+#Analyze when all parameters are staionary, params1
+params1Vector <- apply(params1, 1, function(thisRow) qevd(qevdProb, thisRow["u"], thisRow["s"], thisRow["xi"]))
+
+#Analyze when mu is non-stationary
+params2Vector <- apply(params2, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearProj), thisRow["s"], thisRow["xi"]))
+
+#Analyze when Sigma non-stationary
+params3Vector <- apply(params3, 1, function(thisRow) qevd(qevdProb, thisRow["u"], sigmaNonstat(thisRow["s0"], thisRow["s1"], yearProj), thisRow["xi"]))
+
+#Analyze when xi non-stationary
+params4Vector <- apply(params4, 1, function(thisRow) qevd(qevdProb, thisRow["u"], thisRow["s"], xiNonstat(thisRow["xi0"], thisRow["xi1"], yearProj)))
+
+#Analyze when sigma, xi non-stationary
+params5Vector <- apply(params5, 1, function(thisRow) qevd(qevdProb, thisRow["u"], sigmaNonstat(thisRow["s0"], thisRow["s1"], yearProj), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearProj)))
+
+#Analyze when mu, xi non-stationary
+params6Vector <- apply(params6, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearProj), thisRow["s"], xiNonstat(thisRow["xi0"], thisRow["xi1"], yearProj)))
+
+#Analyze when mu, sigma non-stationary
+params7Vector <- apply(params7, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearProj), sigmaNonstat(thisRow["s0"], thisRow["s1"], yearProj), thisRow["xi"]))
+
+#Analyze when all non-stationary
+params8Vector <- apply(params8, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearProj), sigmaNonstat(thisRow["s0"], thisRow["s1"], yearProj), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearProj)))
+```
+
+```{r}
+params7Vector <- apply(params7, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearProj), sigmaNonstat(thisRow["s0"], thisRow["s1"], yearProj), thisRow["xi"]))
+
+hist(params7Vector, freq = FALSE, border = "white", main = "2016", xlab = "Sea Level [mm]", ylab = "f(x)", xlim = c(0,10000), ylim = c(0,.0005))
+
+lines(density(params7Vector), col = "red")
+
+params7Vector <- apply(params7, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], 2065), sigmaNonstat(thisRow["s0"], thisRow["s1"], yearProj), thisRow["xi"]))
+
+hist(params7Vector, freq = FALSE, border = "white", main = "2065", xlab = "Sea Level [mm]", ylab = "f(x)", xlim = c(0,10000), ylim = c(0,.0005))
+
+lines(density(params7Vector), col = "red")
+
+
+```
+
+```{r}
+
+yearStart <- 2016
+yearEnd <- 2065
+qevdProb <- 0.99
+
+for(i in yearStart:yearEnd){
+  
+params2Vector <- apply(params2, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], i), thisRow["s"], thisRow["xi"]))
+
+myPath <- file.path("C:","Users","Travis", "Desktop", "Summer Research", "Comparison-of-Methods-for-Estimating-Future-Flood-Risk-in-New-Orleans-Louisiana-master", "x100Calculations", "parameter2Graphs" ,paste("parameter2_", i, ".jpg", sep = ""))
+
+jpeg(file=myPath)
+ 
+hist(params2Vector, freq = FALSE, border = "white", main = "Distribution of 100-Year Flood Levels From 2016 to 2065", xlab = "Sea Level [mm]", ylab = "f(x)")
+ 
+lines(density(params2Vector), col = "red")
+ dev.off()
+}
+
+```
+
+
+```{r}
+hist(params1Vector, xlim = c(0, 15000), freq = FALSE, border = "white")
+hist(params2Vector, xlim = c(0, 15000), freq = FALSE, border = "white")
+hist(params3Vector, xlim = c(0, 15000), freq = FALSE, add = T, border = "white")
+hist(params4Vector, xlim = c(0, 15000), freq = FALSE, add = T, border = "white")
+hist(params5Vector, xlim = c(0, 15000), freq = FALSE, add = T, border = "white")
+hist(params6Vector, xlim = c(0, 15000), freq = FALSE, add = T, border = "white")
+hist(params7Vector, xlim = c(0, 15000), freq = FALSE, add = T, border = "white")
+hist(params8Vector, xlim = c(0, 15000), freq = FALSE, add = T, border = "white")
+
+lines(density(params1Vector), col = "red")
+lines(density(params2Vector), col = "blue")
+lines(density(params3Vector), col = "green")
+lines(density(params4Vector), col = "orange")
+lines(density(params5Vector), col = "purple")
+lines(density(params6Vector), col = "gold")
+lines(density(params7Vector), col = "pink")
+lines(density(params8Vector), col = "black")
+```
+
+
