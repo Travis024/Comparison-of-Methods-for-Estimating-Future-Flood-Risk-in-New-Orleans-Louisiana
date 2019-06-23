@@ -77,7 +77,7 @@ source("read_temperature_data.R")
 
 returnperiod_proj <- 100
 year_proj <- 2065
-temp_proj <- temperature_proj[which(time_proj==year_proj)]
+temp_proj <- temperature_forc[which(time_forc==year_proj)]
 
 # model 1 (stationary)
 params <- parameters_normalgamma[[1]]
@@ -113,6 +113,55 @@ lines(kde_NSsig$x, kde_NSsig$y, col="coral", lty=2, lwd=2)
 lines(kde_NSmuxi$x, kde_NSmuxi$y, col="seagreen", lty=2, lwd=2)
 
 
+##=============================================================================
+## with end year changing
+
+returnperiod_proj <- 100
+
+params <- parameters_normalgamma[[1]]
+n_ensemble <- nrow(parameters_normalgamma[[1]])
+x100_stat <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=params[ii,"mu"], scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+
+# model 2 (mu nonstationary)
+params <- parameters_normalgamma[[2]]
+n_ensemble <- nrow(parameters_normalgamma[[2]])
+
+temp_proj <- temperature_forc[which(time_forc==2010)]
+x100_2010 <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+temp_proj <- temperature_forc[which(time_forc==2020)]
+x100_2020 <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+temp_proj <- temperature_forc[which(time_forc==2030)]
+x100_2030 <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+temp_proj <- temperature_forc[which(time_forc==2040)]
+x100_2040 <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+temp_proj <- temperature_forc[which(time_forc==2050)]
+x100_2050 <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+temp_proj <- temperature_forc[which(time_forc==2060)]
+x100_2060 <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+temp_proj <- temperature_forc[which(time_forc==2070)]
+x100_2070 <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+
+lb <- -1000
+ub <- 2e4
+kde_stat <- density(x100_stat, from=lb, to=ub)
+kde_2010 <- density(x100_2010, from=lb, to=ub)
+kde_2020 <- density(x100_2020, from=lb, to=ub)
+kde_2030 <- density(x100_2030, from=lb, to=ub)
+kde_2040 <- density(x100_2040, from=lb, to=ub)
+kde_2050 <- density(x100_2050, from=lb, to=ub)
+kde_2060 <- density(x100_2060, from=lb, to=ub)
+kde_2070 <- density(x100_2070, from=lb, to=ub)
+
+plot(kde_stat$x, kde_stat$y, type='l', lwd=2, col="black", xlab="Surge height [mm]", ylab="Density", xlim=c(0,8000))
+lines(kde_2010$x, kde_2010$y, col="aquamarine2", lty=2, lwd=2)
+lines(kde_2030$x, kde_2030$y, col="aquamarine4", lty=2, lwd=2)
+lines(kde_2050$x, kde_2050$y, col="steelblue1", lty=2, lwd=2)
+lines(kde_2060$x, kde_2070$y, col="steelblue3", lty=2, lwd=2)
+
+quantile(x100_stat, c(.5,.05,.95))
+quantile(x100_2010, c(.5,.05,.95))
+quantile(x100_2030, c(.5,.05,.95))
+quantile(x100_2050, c(.5,.05,.95))
 
 # TODO -- here now!
 
