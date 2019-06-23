@@ -68,6 +68,52 @@ comp_plot <- function(mm, pp) {
 ## Example:
 comp_plot(1,1)
 
+##=============================================================================
+## Check the return levels in 2016 and 2065 using each set of priors
+##=============================================================================
+
+## read temperature forcing
+source("read_temperature_data.R")
+
+returnperiod_proj <- 100
+year_proj <- 2065
+temp_proj <- temperature_proj[which(time_proj==year_proj)]
+
+# model 1 (stationary)
+params <- parameters_normalgamma[[1]]
+n_ensemble <- nrow(parameters_normalgamma[[1]])
+x100_stat <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=params[ii,"mu"], scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+
+# model 2 (mu nonstationary)
+params <- parameters_normalgamma[[2]]
+n_ensemble <- nrow(parameters_normalgamma[[2]])
+x100_NSmu <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=params[ii,"xi"])})
+
+# model 3 (sigma nonstationary)
+params <- parameters_normalgamma[[3]]
+n_ensemble <- nrow(parameters_normalgamma[[3]])
+x100_NSsig <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=params[ii,"mu"], scale=exp(params[ii,"sigma0"]+params[ii,"sigma1"]*temp_proj), shape=params[ii,"xi"])})
+
+# model 6 (mu and xi nonstationary)
+params <- parameters_normalgamma[[6]]
+n_ensemble <- nrow(parameters_normalgamma[[6]])
+x100_NSmuxi <- sapply(1:n_ensemble, function(ii) {qevd(1-1/returnperiod_proj, loc=(params[ii,"mu0"]+params[ii,"mu1"]*temp_proj), scale=params[ii,"sigma"], shape=(params[ii,"xi0"]+params[ii,"xi1"]*temp_proj))})
+
+#
+lb <- -1000
+ub <- 2e4
+kde_stat <- density(x100_stat, from=lb, to=ub)
+kde_NSmu <- density(x100_NSmu, from=lb, to=ub)
+kde_NSsig <- density(x100_NSsig, from=lb, to=ub)
+kde_NSmuxi <- density(x100_NSmuxi, from=lb, to=ub)
+
+plot(kde_stat$x, kde_stat$y, type='l', lwd=2, col="black", xlab="Surge height [mm]", ylab="Density")
+lines(kde_NSmu$x, kde_NSmu$y, col="steelblue", lty=2, lwd=2)
+lines(kde_NSsig$x, kde_NSsig$y, col="coral", lty=2, lwd=2)
+lines(kde_NSmuxi$x, kde_NSmuxi$y, col="seagreen", lty=2, lwd=2)
+
+
+
 # TODO -- here now!
 
 ##=============================================================================
