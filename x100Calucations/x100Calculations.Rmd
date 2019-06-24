@@ -151,7 +151,7 @@ params8Vector <- apply(params8, 1, function(thisRow) qevd(qevdProb, muNonstat(th
 
 #Set the years that we're looking to analyze the parameter sets for
 yearStart <- 2016
-yearEnd <- 2065
+yearEnd <- 2030
 
 #Set the limit probability we'll be using
 qevdProb <- 0.99
@@ -174,30 +174,83 @@ vectorYearEnd <- apply(params5, 1, function(thisRow) qevd(qevdProb, thisRow["u"]
 densityYearEnd <- density(vectorYearEnd, from = 0, to = 100000)
 lines(densityYearEnd, col = "blue")
 
-head(VectorYearEnd, 20)
-
+#Now, find the differences between the values in the two vectors
+vectorDifferences <- vectorYearStart - vectorYearEnd
+densityDifferences <- density (vectorDifferences, from = -5000, to = 5000)
+plot(densityDifferences, type = "l", main = "Density of Differences in x100 Values Between Years", xlab = "Difference in Values [mm]")
+abline(v = 0)
 ```
 
 ```{r}
 
-#This code will be modified to save images of the distribution every year for a series of years
-#It is still a work in progress
+#This code will save images of the distribution every year for a series of years
+#It plots the yearStart distirbutio against the current year's distribution including a legend
+#It also finds the differences in x100 values between the two years and saves those pictures as well
 
+#Set the start year, end year, and qevd probability
 yearStart <- 2016
 yearEnd <- 2065
 qevdProb <- 0.99
 
 for(i in yearStart:yearEnd){
   
-params2Vector <- apply(params2, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], i), thisRow["s"], thisRow["xi"]))
+#Only want to calculate the yearStart values once, so wrap this portion in an if statement
+if(i == yearStart){
+  vectorYearStart <- apply(params5, 1, function(thisRow) qevd(qevdProb, thisRow["u"], sigmaNonstat(thisRow["s0"], thisRow["s1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
 
-myPath <- file.path("C:","Users","Travis", "Desktop", "Summer Research", "Comparison-of-Methods-for-Estimating-Future-Flood-Risk-in-New-Orleans-Louisiana-master", "x100Calculations", "parameter2Graphs" ,paste("parameter2_", i, ".jpg", sep = ""))
+densityYearStart <- density(vectorYearStart, from = 0, to = 100000)
+}
 
-jpeg(file=myPath)
+#If it isn't the start year, calcualte the vector of values for year i
+else{
+  vectorYeari <- apply(params5, 1, function(thisRow) qevd(qevdProb, thisRow["u"], sigmaNonstat(thisRow["s0"], thisRow["s1"], i), xiNonstat(thisRow["xi0"], thisRow["xi1"], i)))
+  
+  densityYeari <- density(vectorYeari, from = 0, to = 100000)
+
+  #Now, find the difference in values between the two years
+  vectorDifferences <- vectorYearStart - vectorYeari
+  densityDifferences <- density (vectorDifferences, from = -5000, to = 5000)
+}
+
+#This sets the file path the images are save to
+#It must be modified if one wants to save the images in different locations
+myPathYearPlot <- file.path("C:","Users","Travis", "Desktop", "Summer Research", "Comparison-of-Methods-for-Estimating-Future-Flood-Risk-in-New-Orleans-Louisiana-master", "x100Calculations", "parameter2Years" ,paste("parameter2_", i, ".jpg", sep = ""))
+
+
+#This tells R that we want to save the image as a .jpg
+jpeg(file=myPathYearPlot)
  
-hist(params2Vector, freq = FALSE, border = "white", main = "Distribution of 100-Year Flood Levels From 2016 to 2065", xlab = "Sea Level [mm]", ylab = "f(x)")
- 
-lines(density(params2Vector), col = "red")
+#Plot the density of both vectors
+plot(densityYearStart, type = "l", col = "red", main = "Params5 - Density Distribution of x100 values from 2016 to 2065", xlab = "Sea Level [mm]", ylab = "Density")
+
+lines(densityYeari, col = "blue")
+
+#Because the graph for the start year only has one line, it gets a different legend
+if(i == yearStart){
+  legend("topright", legend=c(yearStart), col=c("red"), lty=1, cex=0.8, title="Year", text.font=4, bg='lightblue')
+}
+else{
+  legend("topright", legend=c(yearStart, i), col=c("red", "blue"), lty=1, cex=0.8, title="Year", text.font=4, bg='lightblue')
+}
+
  dev.off()
+ 
+#Do the same as above, but this time for the graph of differences between values
+#Only find the differences for years greater than the start year
+if(i > yearStart){
+ myPathDifferencesPlot <- file.path("C:","Users","Travis", "Desktop", "Summer Research", "Comparison-of-Methods-for-Estimating-Future-Flood-Risk-in-New-Orleans-Louisiana-master", "x100Calculations", "parameter2Differences" ,paste("differences_", i, ".jpg", sep = ""))
+ 
+jpeg(file=myPathDifferencesPlot)
+
+plot(densityDifferences, type = "l", main = "Density of Differences in x100 Values Between Year Start and Year i", cex.main = 0.8, xlab = "Difference in Values [mm]", ylab = "Density")
+
+legend("topright", legend = c(i), cex=0.8, title= "Year", text.font=4, bg = "lightblue")
+
+#This will add a vertical line to discern negative differences from positive ones
+abline(v = 0)
+
+dev.off()
+}
+
 }
 ```
