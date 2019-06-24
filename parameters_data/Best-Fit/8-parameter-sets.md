@@ -1,4 +1,5 @@
-All parameters are stationary:\\
+All parameters are stationary:
+
 mu: 550.165410730062, sigma: 112.676410645175, xi: 0.495133167963144
 
 mu is nonstationary:
