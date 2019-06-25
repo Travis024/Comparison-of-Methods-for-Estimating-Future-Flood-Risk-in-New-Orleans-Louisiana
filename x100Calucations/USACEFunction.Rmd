@@ -1,7 +1,6 @@
 ---
-title: "USACE Engineers Function"
+title: "USACE Function"
 author: "Travis Torline"
-
 ---
 
 ```{r}
@@ -11,11 +10,10 @@ author: "Travis Torline"
 #3) Sample a surge factor from a unifrom distribution
 #4) Construct a realization of X'rp as Xrp + Surge Factor * Change in Sea Level
 
-#Using this process, we will compare the density distribtion of Xrp's to the distribution of X'rp's 
-
 #To begin, we must load in the necessary data:
 #Sea level data
 #Stationary GEV parameters
+#A time vector
 
 library(extRemes)
 library(ncdf4)
@@ -24,48 +22,74 @@ library(ncdf4)
 #LSL 85 has 12,586 sea level projections from 1850 to 2100
 ncin <- nc_open("../ncdfFiles/SeaLevelData.nc")
 
+#This data is in meters, so multipy by 1000 to get millimeters
 LSL85 <- ncvar_get(ncin, "LocalSeaLevel_gamma_RCP85")
+LSL85 <- LSL85 * 1000
+
+#The following loads in a time vector
+timeProj <- ncvar_get(ncin, "time_proj")
+
+nc_close(ncin)
 
 #The following loads in the stationary GEV parameters
 params1 <- read.csv(file="../parameters_data/Data Frames/params1.csv", header=TRUE, sep=",") #All stationary
 
-#Finally, load in a time projection
-timeProj <- ncvar_get(ncin, "time_proj")
-
 #Now we create our function, which will complete the 4 steps outlined above
-#As inputs, it will take seaLevelData, parametersData, timeProj, iterations, yearStart, yearEnd, returnPeriod, uniformStart, and uniformEnd
+#As inputs, it will take seaLevelData, statParams, timeProj, iterations, yearStart, yearEnd, returnPeriod, uniformStart, and uniformEnd
 #seaLevelData = sea level projections IN MILIMETERS
-#parametersData = stationary GEV parameters IN MILIMETERS
+#statParams = stationary GEV parameters IN MILIMETERS
 #timeProj = a vector of years for which there is sea level data
 #iterations = how many times to go through the above 4 steps
-#yearStart = starting year
-#yearEnd = ending year
-#returnPeriod = The yearly magnitude of the storm (example, a 1 in 1oo year storm has a return period of 100)
+#yearStart = starting year for sea level change
+#yearEnd = ending year for sea level change
+#returnPeriod = The yearly magnitude of the storm (example, a 1 in 100 year storm has a return period of 100)
 #uniformStart = the starting number for the uniform distribution
 #uniformEnd = the ending number for the uniform distribution
 
-generateUSACE <- function(seaLevelData, paramatersData, timeProj, iterations = 1, yearStart = 2016, yearEnd = 2065, returnPeriod = 100, uniformStart, uniformEnd){
+generateUSACE <- function(seaLevelData, statParams, timeProj, iterations = 2064, yearStart = 2016, yearEnd = 2065, returnPeriod = 100, uniformStart = 1.5, uniformEnd = 2){
   
-  #Begin by sampling from the seaLevelData
-  #Generate a random index and calculate the change from yearStart to yearEnd
-  sampleIndex <- sample(1:ncol(seaLevelData), 1)
-  startRow = which(timeProj == yearStart)
-  endRow = which(timeProj == yearEnd)
+  #Calculate the qevd probability given the return period passed in
+  qevdProb = 1 - (1/returnPeriod)
   
-  seaLevelChange <- (seaLevelData[endRow, sampleIndex] - seaLevelData[startRow, sampleIndex])
+  #Create a vector to store the values that we calculate for X'rp
+  USACEVector <- c()
   
-  #Now, sample the GEV parameters
-  sampleIndex = sample(1:nrow(paramatersData), 1)
-  sampleMu <- paramatersData[sampleIndex, "u"]
-  sampleSigma <- paramatersData[sampleIndex, "s"]
-  sampleXi <- paramatersData[sampleIndex, "xi"]
   
-
-  #Finally, sample from the uniform distribution
-  sampleUniform <- runif(1, uniformStart, uniformEnd)
+  #We want to go through this process as many times as requested
+  for(i in 1:iterations){
+    
+    #Begin by sampling from the seaLevelData
+    #Generate a random index and calculate the change from yearStart to yearEnd
+    sampleIndex <- sample(1:ncol(seaLevelData), 1)
+    startRow = which(timeProj == yearStart)
+    endRow = which(timeProj == yearEnd)
+    
+    seaLevelChange <- (seaLevelData[endRow, sampleIndex] - seaLevelData[startRow, sampleIndex])
+    
+    #Now, sample the GEV parameters
+    sampleIndex = sample(1:nrow(statParams), 1)
+    sampleMu <- statParams[sampleIndex, "u"]
+    sampleSigma <- statParams[sampleIndex, "s"]
+    sampleXi <- statParams[sampleIndex, "xi"]
   
+    #Finally, sample from the uniform distribution
+    sampleSurge <- runif(1, uniformStart, uniformEnd)
+    
+    #Now, calculate the the value for the return period using the sationary parameters sampled above
+    returnPeriodValue <- qevd(qevdProb, sampleMu, sampleSigma, sampleXi)
+    
+    #Modify that value using the sampled surge factor and change in sea level
+    returnPeriodValue <- returnPeriodValue + (sampleSurge * seaLevelChange)
+    
+    #And append the value to our stored vector of values
+    USACEVector <- append(USACEVector, returnPeriodValue)
+  } 
+  
+  #Finally, make a density plot of the USACE values
+  plot(density(USACEVector, from = 0, to = 10000), main = "USACE Density Distribution of Projected Return Period Sea Levels", xlab = "Sea Level [mm]", ylab = "Density")
 }
 
-generateUSACE(LSL85 * 1000, params1, timeProj, uniformStart = 2, uniformEnd = 10)
+generateUSACE(seaLevelData = LSL85, statParams = params1, timeProj = timeProj, iterations = 2064, uniformStart = 2, uniformEnd = 5)
+
 ```
 
