@@ -37,4 +37,4 @@ This week, we will begin to model the USACE against our 8 parameter sets to see 
 
 Our hope is to get the distribtuons to somewhat match up by determing what the distribtuon of surge factors should be. Should it be a uniform ditribution from 1.5 to 2, or maybe from 0 to 10? Is it possible that it's not even a uniform distribtuion at all?
 
-This portion of the project can be found in the 'x100Calculations' folder. Specifically, look for the file titled "USACEFunction".
+This portion of the project can be found in the 'x100Calculations' folder. Specifically, look for the file titled "USACEFunction" for the function that generates values for the USACE's method and in the file titled "Driver File" for a slick and fast way to plot non-stationary distirbutions and the USACE method against one another.
