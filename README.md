@@ -63,3 +63,17 @@ While we have everything seemigly working correctly so far, we seem to have run 
 
 ### Parameter Set 8
 ![](parameter8YearsGif.gif)
+
+Notice that while the distributions for parameter sets 2 and 4 seem keep their shape for the entire time-span, the distributions of the other parameter sets eventually becomes very wide and flattens out. The approximate year that this happens is as follows:
+
+- Parameter Set 3: 2042
+- Parameter Set 5: 2029
+- Parameter Set 6: 2032
+- Parameter Set 7: 2036
+- Parameter Set 8: 2029
+
+In general, it seems that as the number of non-stationary parameters increases, the time it takes for the distribution to become wide and flat decreases.
+
+Because of this, we decided to try a different method in which we assign weights to each parameter set based on how good we think its data is, pull a value from the distributions, multiply that value by the weight, and form an entire new distribution of 100 year storm values. This method is called Bayseian Model Averaging.
+
+For this method, I will begin by assigning the weight smyself and then see how the resulting ditribution turns out. If its data looks better - and mu appears to increase over time rather than decrease - we will run an actual algorithm to determine what the exact weights for each parameter set will be.
