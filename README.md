@@ -64,7 +64,7 @@ While we have everything seemigly working correctly so far, we seem to have run 
 ### Parameter Set 8
 ![](parameter8YearsGif.gif)
 
-Notice that while the distributions for parameter sets 2 and 4 seem keep their shape for the entire time-span, the distributions of the other parameter sets eventually becomes very wide and flattens out. The approximate year that this happens is as follows:
+Notice that while the distributions for parameter sets 2 and 4 seem to keep their shape for the entire time-span, the distributions of the other parameter sets eventually becomes very wide and flattens out. The approximate year that this happens is as follows:
 
 - Parameter Set 3: 2042
 - Parameter Set 5: 2029
