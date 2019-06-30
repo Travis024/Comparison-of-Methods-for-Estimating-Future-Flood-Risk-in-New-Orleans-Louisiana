@@ -41,4 +41,25 @@ This portion of the project can be found in the 'x100Calculations' folder. Speci
 
 ## Week 5
 
+While we have everything seemigly working correctly so far, we seem to have run into a small problem - the distributions of 100 year storms (x100) for our non-stationary parameter sets are off. Firstly, they show mu, the location parameter, decreasing over time. This is strange because common knowledge of rising sea levels would lead one to believe that mu should be increasing. Secondly, many of the distributions become incredibly wide to the point where their data is unuseable at a point. See the below gifs for a visual of all 8 GEV parameter sets and how the GEV shifts from 2016 to 2065:
+
+### Parameter Set 2
 ![](parameter2YearsGif.gif)
+
+### Parameter Set 3
+![](parameter3YearsGif.gif)
+
+### Parameter Set 4
+![](parameter4YearsGif.gif)
+
+### Parameter Set 5
+![](parameter5YearsGif.gif)
+
+### Parameter Set 6
+![](parameter6YearsGif.gif)
+
+### Parameter Set 7
+![](parameter7YearsGif.gif)
+
+### Parameter Set 8
+![](parameter8YearsGif.gif)
