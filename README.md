@@ -37,4 +37,43 @@ This week, we will begin to model the USACE against our 8 parameter sets to see 
 
 Our hope is to get the distribtuons to somewhat match up by determing what the distribtuon of surge factors should be. Should it be a uniform ditribution from 1.5 to 2, or maybe from 0 to 10? Is it possible that it's not even a uniform distribtuion at all?
 
-This portion of the project can be found in the 'x100Calculations' folder. Specifically, look for the file titled "USACEFunction".
+This portion of the project can be found in the 'x100Calculations' folder. Specifically, look for the file titled "USACEFunction" for the function that generates values for the USACE's method and in the file titled "Driver File" for a slick and fast way to plot non-stationary distirbutions and the USACE method against one another.
+
+## Week 5
+
+While we have everything seemigly working correctly so far, we seem to have run into a small problem - the distributions of 100 year storms (x100) for our non-stationary parameter sets are off. Firstly, they show mu, the location parameter, decreasing over time. This is strange because common knowledge of rising sea levels would lead one to believe that mu should be increasing. Secondly, many of the distributions become incredibly wide to the point where their data is unuseable at a point. See the below gifs for a visual of all 8 GEV parameter sets and how the GEV shifts from 2016 to 2065:
+
+### Parameter Set 2
+![](parameter2YearsGif.gif)
+
+### Parameter Set 3
+![](parameter3YearsGif.gif)
+
+### Parameter Set 4
+![](parameter4YearsGif.gif)
+
+### Parameter Set 5
+![](parameter5YearsGif.gif)
+
+### Parameter Set 6
+![](parameter6YearsGif.gif)
+
+### Parameter Set 7
+![](parameter7YearsGif.gif)
+
+### Parameter Set 8
+![](parameter8YearsGif.gif)
+
+Notice that while the distributions for parameter sets 2 and 4 seem to keep their shape for the entire time-span, the distributions of the other parameter sets eventually becomes very wide and flattens out. The approximate year that this happens is as follows:
+
+- Parameter Set 3: 2042
+- Parameter Set 5: 2029
+- Parameter Set 6: 2032
+- Parameter Set 7: 2036
+- Parameter Set 8: 2029
+
+In general, it seems that as the number of non-stationary parameters increases, the time it takes for the distribution to become wide and flat decreases.
+
+Because of this, we decided to try a different method in which we assign weights to each parameter set based on how good we think its data is, pull a value from the distributions, multiply that value by the weight, and form an entire new distribution of 100 year storm values. This method is called Bayseian Model Averaging.
+
+For this method, I will begin by assigning the weight smyself and then see how the resulting ditribution turns out. If its data looks better - and mu appears to increase over time rather than decrease - we will run an actual algorithm to determine what the exact weights for each parameter set will be.

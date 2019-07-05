@@ -72,28 +72,30 @@ generateUSACE <- function(seaLevelData, statParams, timeProj, iterations = 2064,
     sampleSigma <- statParams[sampleIndex, "s"]
     sampleXi <- statParams[sampleIndex, "xi"]
   
-    #Finally, sample from the uniform distribution
-    # TW: call this "SurgeFactor" or something to make it distinct from the storm surge itself (since this is an increase in storm surge)
-    sampleSurge <- runif(1, uniformStart, uniformEnd)
+    #Finally, sample from the uniform distribution to get the surge factor
+    surgeFactor <- runif(1, uniformStart, uniformEnd)
     
-    #Now, calculate the the value for the return period using the sationary parameters sampled above
-    # TW: call this returnLevel (to be analogous to the named returnPeriod input)
-    returnPeriodValue <- qevd(qevdProb, sampleMu, sampleSigma, sampleXi)
+    #Now, calculate the return level using the sationary parameters sampled above
+    returnLevel <- qevd(qevdProb, sampleMu, sampleSigma, sampleXi)
     
     #Modify that value using the sampled surge factor and change in sea level
-    returnPeriodValue <- returnPeriodValue + (sampleSurge * seaLevelChange)
+    returnLevel <- returnLevel + (surgeFactor * seaLevelChange)
     
-    #And append the value to our stored vector of values
-    USACEVector <- append(USACEVector, returnPeriodValue)
+    #And append the changed value to our vector of values
+    USACEVector <- append(USACEVector, returnLevel)
+    
   } 
   
-  #Finally, make a density plot of the USACE values
-  # TW: I'd leave this out, since you won't always want to immediately create a plot
-  # typically, a nice workflow is to have all the calculations/analysis in one "unit", and then the plotting routines somewhere else
-  plot(density(USACEVector, from = 0, to = 10000), main = "USACE Density Distribution of Projected Return Period Sea Levels", xlab = "Sea Level [mm]", ylab = "Density")
+  return(USACEVector)
+  
 }
 
-generateUSACE(seaLevelData = LSL85, statParams = params1, timeProj = timeProj, iterations = 2064, uniformStart = 2, uniformEnd = 5)
+##Finally, call the function and make a density plot of the USACE values
+exampleUSACE <- generateUSACE(seaLevelData = LSL85, statParams = params1, timeProj = timeProj, iterations = 2064, returnPeriod = 100, uniformStart = 2, uniformEnd = 5)
+
+plot(density(exampleUSACE, from = 0, to = 10000), main = "USACE Density Distribution of Projected Return Levels", xlab = "Sea Level [mm]", ylab = "Density")
 
 ```
+
+
 
