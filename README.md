@@ -80,11 +80,14 @@ For this method, I will begin by assigning the weights myself and then see how t
 
 I plotted the distirbution with three different weight values: 
 
-1) 0.8, 0.1, 0.06, 0.01, 0.01, 0.01, 0.01 
+1) 0.8, 0.1, 0.06, 0.01, 0.01, 0.01, 0.01
+ 
 ![](BMA_1_Gif.gif)
 2) 0.9, 0.05, 0.04, 0.0025, 0.0025, 0.0025
+
 ![](BMA_2_Gif.gif)
 3) 0.6, 0.3, 0.3, 0.025, 0;025, 0.025, 0.025
+
 ![](BMA_3_Gif.gif)
 
 Becuase the distributions move right over time, their mu values must be increasing, which is what we expected to see. So, Tony will run ana anlysis to find out what the exact weights should be. However, notice how the distributions widen out over time - this means that we're losing information as we try to make estimates further and further in the future. Thus, our estimates are becoming less and less accurate as well!
