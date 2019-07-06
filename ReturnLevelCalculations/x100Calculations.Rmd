@@ -1,0 +1,260 @@
+---
+title: "Torline - 2019 - x100Calculations"
+author: "Travis Torline"
+date: "6/15/2019"
+---
+
+```{r}
+#Begin by loading the packages we'll need to perform our analysis
+library("extRemes")
+library(ncdf4)
+
+#Now, read in all of the CSV files and store them
+params1 <- read.csv(file="../parameters_data/Data Frames/params1.csv", header=TRUE, sep=",") #All stationary
+params2 <- read.csv(file="../parameters_data/Data Frames/params2.csv", header=TRUE, sep=",") #Mu nonstationary
+params3 <- read.csv(file="../parameters_data/Data Frames/params3.csv", header=TRUE, sep=",") #Sigma nonstationary
+params4 <- read.csv(file="../parameters_data/Data Frames/params4.csv", header=TRUE, sep=",") #Xi nonstatioanry
+params5 <- read.csv(file="../parameters_data/Data Frames/params5.csv", header=TRUE, sep=",") #Sigma/Xi nonstationary
+params6 <- read.csv(file="../parameters_data/Data Frames/params6.csv", header=TRUE, sep=",") #Mu/Xi nonstationary
+params7 <- read.csv(file="../parameters_data/Data Frames/params7.csv", header=TRUE, sep=",") #Mu/Sigma nonstationary
+params8 <- read.csv(file="../parameters_data/Data Frames/params8.csv", header=TRUE, sep=",") #All nonstationary
+
+
+#The following is code from advisor Tony Wong to read in and normalize historical temperature data from NOAA
+#The variables we'll need from this are 'temperature_proj' and 'time_proj'
+##=============================================================================
+## read_temperature_data.R
+##
+## read temperature data
+## historical from NOAA:
+##   NOAA National Centers for Environmental information, Climate at a Glance:
+##   Global Time Series, published May 2017, retrieved on June 7, 2017 from
+##   http://www.ncdc.noaa.gov/cag/
+## future projections from CRNM under RCP8.5, part of CMIP5
+##
+## Questions? Tony Wong (anthony.e.wong@colorado.edu)
+##=============================================================================
+
+# read the projections temperature forcing from CRNM (CMIP5)
+# note: these are in K, but going to normalize, so will take a difference and
+# it's same as celsius
+ncdata <- nc_open('../parameters_data/global.tas.aann.CNRM-CM5.historical+rcp85.r1i1p1.18500101-21001231.nc')
+temperature_proj <- ncvar_get(ncdata, 'tas')
+time_proj <- ncvar_get(ncdata, 'time')
+nc_close(ncdata)
+
+# 'time' on the netcdf ile is YYYYMMDD, where MMDD is July 2 each year (becuase
+# of the averaging). so pluck off just the years
+time_proj <- floor(time_proj/10000)
+
+# read the historical forcing from NOAA
+data.tmp <- read.table('../parameters_data/noaa_temperature_1880-2017.csv', header = TRUE, sep=',')
+time_hist <- data.tmp$Year
+temperature_hist <- data.tmp$Value
+
+# extend historical back to 1850 with HadCRUT4
+data.tmp = read.table('../parameters_data/HadCRUT.4.4.0.0.annual_ns_avg.txt')
+time_hadcrut = data.tmp[,1]
+temperature_hadcrut = data.tmp[,2]
+
+# normalize all to 1901-2000
+ind_norm <- which(time_hist==1901):which(time_hist==2000)
+temperature_hist <- temperature_hist - mean(temperature_hist[ind_norm])
+
+ind_norm <- which(time_hadcrut==1901):which(time_hadcrut==2000)
+temperature_hadcrut <- temperature_hadcrut - mean(temperature_hadcrut[ind_norm])
+
+ind_norm <- which(time_proj==1901):which(time_proj==2000)
+temperature_proj <- temperature_proj - mean(temperature_proj[ind_norm])
+
+# set up the forcing, wherein the historical starts, then projections finish
+# 1850-1880 -- hadcrut4
+# 1880-2016 -- NOAA historical
+# 2017-2100 -- CRNM projection
+time_forc <- min(time_hadcrut):max(time_proj)
+temperature_forc <- rep(NA, length(time_forc))
+
+ind_hadcrut <- which(time_hadcrut==time_forc[1]):(which(time_hadcrut==time_hist[1])-1)
+ind_hist    <- 1:length(time_hist)
+ind_proj    <- which(time_proj==(max(time_hist)+1)):which(time_proj==max(time_forc))
+
+temperature_forc <- c(temperature_hadcrut[ind_hadcrut],
+                      temperature_hist[ind_hist]      ,
+                      temperature_proj[ind_proj]      )
+
+# maximum temperature serves as an additinoal prior constraint on kappa0, kappa1
+# that is, kappa1 > -kappa0/Tmax (otherwise, kappa = kappa0 + kappa1*T might be
+# negative)  (not necessary for GEV models)
+Tmax <- max(temperature_forc)
+
+
+#Set up the formulas for nonstationary variables
+#Each function takes a stationary parameter, non-stationary parameter, and time as inputs
+#Each function calculates a new parameter value using the projected average temperature
+#The 'which' function finds the index of time_proj with the value we pass through
+#time is passed explicity in case no time is passed through by user
+muNonstat <- function(mu0, mu1, time = 2016){
+  newMu <- mu0 + mu1 * temperature_proj[which(time_proj == time)]
+}
+
+sigmaNonstat <- function(sigma0, sigma1, time = 2016){
+  newSigma <- exp(sigma0 + sigma1 * temperature_proj[which(time_proj == time)])
+}
+
+xiNonstat <- function(xi0, xi1, time = 2016){
+  newXi <- xi0 + xi1 * temperature_proj[which(time_proj == time)]
+}
+```
+
+```{r}
+#Set the years that we're looking to analyze the parameter sets for
+yearStart <- 2016
+yearEnd <- 2065
+
+#Set the limit probability we'll be using
+qevdProb <- 0.99
+
+#Now, go through all 8 sets of parameters
+#Within each set, use the apply() function to go individually over ever row
+#Within each row, take the parameter values and plug into the qevd function using the qevd probability specified above. This will give the value such that qevdProb * 100% of probability lies below that point
+#For non-stationary values, the previously created ...Nonstat() functions will calculate the new value within the qevd call using the mean annual temperature during the year specified by yearStart
+#apply() returns a vector of values, which we will store for future graphing
+
+#Analyze when all parameters are staionary, params1
+params1Vector <- apply(params1, 1, function(thisRow) qevd(qevdProb, thisRow["u"], thisRow["s"], thisRow["xi"]))
+
+#Analyze when mu is non-stationary
+params2Vector <- apply(params2, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearStart), thisRow["s"], thisRow["xi"]))
+
+#Analyze when Sigma non-stationary
+params3Vector <- apply(params3, 1, function(thisRow) qevd(qevdProb, thisRow["u"], sigmaNonstat(thisRow["s0"], thisRow["s1"], yearStart), thisRow["xi"]))
+
+#Analyze when xi non-stationary
+params4Vector <- apply(params4, 1, function(thisRow) qevd(qevdProb, thisRow["u"], thisRow["s"], xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+
+#Analyze when sigma, xi non-stationary
+params5Vector <- apply(params5, 1, function(thisRow) qevd(qevdProb, thisRow["u"], sigmaNonstat(thisRow["s0"], thisRow["s1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+
+#Analyze when mu, xi non-stationary
+params6Vector <- apply(params6, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearStart), thisRow["s"], xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+
+#Analyze when mu, sigma non-stationary
+params7Vector <- apply(params7, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearStart), sigmaNonstat(thisRow["s0"], thisRow["s1"], yearStart), thisRow["xi"]))
+
+#Analyze when all non-stationary
+params8Vector <- apply(params8, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearStart), sigmaNonstat(thisRow["s0"], thisRow["s1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+```
+
+```{r}
+#The following code is used to create graphs of density distributons for different years.
+#Plug in the appropriate chunk of code from above to show how the density of x100 values changes over different years
+
+#Set the years that we're looking to analyze the parameter sets for
+yearStart <- 2016
+yearEnd <- 2030
+
+#Set the limit probability we'll be using
+qevdProb <- 0.99
+
+#Find the x100 values in 2016 using the same call as above
+vectorYearStart <- apply(params5, 1, function(thisRow) qevd(qevdProb, thisRow["u"], sigmaNonstat(thisRow["s0"], thisRow["s1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+
+#Use the density funcion to graph the density of values
+#Specify from = 0 and to = 10000 so as to give no weight to any values outside these parameters
+densityYearStart <- density(vectorYearStart, from = 0, to = 100000)
+plot(densityYearStart, type = "l", col = "red", main = "Params5 - Density Distribution of x100 values in 2016 and 2065", xlab = "Sea Level [mm]", ylab = "f(x)")
+
+#Add a legend to the plot to discern the years
+legend("topright", legend=c(yearStart, yearEnd), col=c("red", "blue"), lty=1, cex=0.8, title="Year", text.font=4, bg='lightblue')
+
+
+#Repeat the same process for the yearEnd
+vectorYearEnd <- apply(params5, 1, function(thisRow) qevd(qevdProb, thisRow["u"], sigmaNonstat(thisRow["s0"], thisRow["s1"], yearEnd), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearEnd)))
+
+densityYearEnd <- density(vectorYearEnd, from = 0, to = 100000)
+lines(densityYearEnd, col = "blue")
+
+#Now, find the differences between the values in the two vectors
+vectorDifferences <- vectorYearStart - vectorYearEnd
+densityDifferences <- density (vectorDifferences, from = -5000, to = 5000)
+plot(densityDifferences, type = "l", main = "Density of Differences in x100 Values Between Years", xlab = "Difference in Values [mm]")
+abline(v = 0)
+```
+
+```{r}
+
+#This code will save images of the distribution every year for a series of years
+#It plots the yearStart distirbutio against the current year's distribution including a legend
+#It also finds the differences in x100 values between the two years and saves those pictures as well
+
+#Set the start year, end year, and qevd probability
+yearStart <- 2016
+yearEnd <- 2065
+qevdProb <- 0.99
+
+for(i in yearStart:yearEnd){
+  
+#Only want to calculate the yearStart values once, so wrap this portion in an if statement
+if(i == yearStart){
+  vectorYearStart <- apply(params8, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], yearStart), sigmaNonstat(thisRow["s0"], thisRow["s1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+
+densityYearStart <- density(vectorYearStart, from = 0, to = 100000)
+
+}
+
+#If it isn't the start year, calcualte the vector of values for year i
+else{
+  vectorYeari <- apply(params8, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["u0"], thisRow["u1"], i), sigmaNonstat(thisRow["s0"], thisRow["s1"], i), xiNonstat(thisRow["xi0"], thisRow["xi1"], i)))
+  
+  densityYeari <- density(vectorYeari, from = 0, to = 100000)
+
+  #Now, find the difference in values between the two years
+  vectorDifferences <- vectorYearStart - vectorYeari
+  densityDifferences <- density (vectorDifferences, from = -5000, to = 5000)
+}
+
+#This sets the file path the images are save to
+#It must be modified if one wants to save the images in different locations
+myPathYearPlot <- file.path("C:","Users","Travis", "Desktop", "Summer Research", "Comparison-of-Methods-for-Estimating-Future-Flood-Risk-in-New-Orleans-Louisiana-master", "x100Calculations", "parameter8Years" ,paste("parameter8_", i, ".jpg", sep = ""))
+
+
+#This tells R that we want to save the image as a .jpg
+jpeg(file=myPathYearPlot)
+ 
+#Plot the density of both vectors
+plot(densityYearStart, ty5 = "l", col = "red", main = "Params8 - Density Distribution of x100 values from 2016 to 2065", xlab = "Sea Level [mm]", ylab = "Density")
+
+if(i > yearStart){
+  lines(densityYeari, col = "blue")
+}
+
+#Because the graph for the start year only has one line, it gets a different legend
+if(i == yearStart){
+  legend("topright", legend=c(yearStart), col=c("red"), lty=1, cex=0.8, title="Year", text.font=4, bg='lightblue')
+}
+else{
+  legend("topright", legend=c(yearStart, i), col=c("red", "blue"), lty=1, cex=0.8, title="Year", text.font=4, bg='lightblue')
+}
+
+ dev.off()
+ 
+#Do the same as above, but this time for the graph of differences between values
+#Only find the differences for years greater than the start year
+if(i > yearStart){
+ myPathDifferencesPlot <- file.path("C:","Users","Travis", "Desktop", "Summer Research", "Comparison-of-Methods-for-Estimating-Future-Flood-Risk-in-New-Orleans-Louisiana-master", "x100Calculations", "parameter8Differences" ,paste("differences_", i, ".jpg", sep = ""))
+ 
+jpeg(file=myPathDifferencesPlot)
+
+plot(densityDifferences, type = "l", main = "Density of Differences in x100 Values Between Year Start and Year i", cex.main = 0.8, xlab = "Difference in Values [mm]", ylab = "Density")
+
+legend("topright", legend = c(i), cex=0.8, title= "Year", text.font=4, bg = "lightblue")
+
+#This will add a vertical line to discern negative differences from positive ones
+abline(v = 0)
+
+dev.off()
+}
+
+}
+```
+
