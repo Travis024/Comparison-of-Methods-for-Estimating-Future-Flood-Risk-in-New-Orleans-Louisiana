@@ -27,7 +27,7 @@ It is our task to create a density distribution for each of the 8 .csv files sho
 
 Furthermore, we wish to show how these density distribtuions change over time as global mean temperature increases. By comapring the year 2016 to the year 2065, we can see hwo the ditribution of 100-year storms changes and whether we can expect to see higher or lower flood levels for these storms.
 
-This portion of the project can be found in the 'x100Calculations' folder. Specifically, look for the file titled "x100Calculations".
+This portion of the project can be found in the 'ReturnLevelCalculations' folder. Specifically, look for the file titled "x100Calculations".
 
 ## Week 4
 
@@ -37,7 +37,7 @@ This week, we will begin to model the USACE against our 8 parameter sets to see 
 
 Our hope is to get the distribtuons to somewhat match up by determing what the distribtuon of surge factors should be. Should it be a uniform ditribution from 1.5 to 2, or maybe from 0 to 10? Is it possible that it's not even a uniform distribtuion at all?
 
-This portion of the project can be found in the 'x100Calculations' folder. Specifically, look for the file titled "USACEFunction" for the function that generates values for the USACE's method and in the file titled "Driver File" for a slick and fast way to plot non-stationary distirbutions and the USACE method against one another.
+This portion of the project can be found in the 'ReturnLevelCalculations' folder. Specifically, look for the file titled "USACEFunction" for the function that generates values for the USACE's method and in the file titled "Driver File" for a slick and fast way to plot non-stationary distirbutions and the USACE method against one another.
 
 ## Week 5
 
@@ -76,4 +76,38 @@ In general, it seems that as the number of non-stationary parameters increases, 
 
 Because of this, we decided to try a different method in which we assign weights to each parameter set based on how good we think its data is, pull a value from the distributions, multiply that value by the weight, and form an entire new distribution of 100 year storm values. This method is called Bayseian Model Averaging.
 
-For this method, I will begin by assigning the weight smyself and then see how the resulting ditribution turns out. If its data looks better - and mu appears to increase over time rather than decrease - we will run an actual algorithm to determine what the exact weights for each parameter set will be.
+For this method, I will begin by assigning the weights myself and then see how the resulting ditribution turns out. If its data looks better - and mu appears to increase over time rather than decrease - we will run an actual algorithm to determine what the exact weights for each parameter set will be. 
+
+I plotted the distirbution with three different weight values: 
+
+1) 0.8, 0.1, 0.06, 0.01, 0.01, 0.01, 0.01 
+![](BMA_1_Gif.gif)
+2) 0.9, 0.05, 0.04, 0.0025, 0.0025, 0.0025
+![](BMA_2_Gif.gif)
+3) 0.6, 0.3, 0.3, 0.025, 0;025, 0.025, 0.025
+![](BMA_3_Gif.gif)
+
+Becuase the distributions move right over time, their mu values must be increasing, which is what we expected to see. So, Tony will run ana anlysis to find out what the exact weights should be. However, notice how the distributions widen out over time - this means that we're losing information as we try to make estimates further and further in the future. Thus, our estimates are becoming less and less accurate as well!
+
+## Week 6
+
+Tony determined what the exact weights should be - his result files can be found in the 'outputs' folder, and I've included them here as well.
+
+models               bma.weights           
+[1,] "stationary"         "0.334929830784145"   
+[2,] "mu non-stat"        "0.256883114453936"   
+[3,] "sigma non-stat"     "9.7942094599098e-05" 
+[4,] "xi non-stat"        "0.264857781577595"   
+[5,] "mu, sigma non-stat" "3.81122127246433e-05"
+[6,] "mu, xi non-stat"    "0.143131709358067"   
+[7,] "sigma, xi non-stat" "4.15096912776461e-05"
+[8,] "all non-stat"       "1.99998276549952e-05"
+
+We wanted to use these BMA weights to graph the distirbution, but we also wanted to know if the distribution would better keep its shape (and thus retain more information) with smaller return level values. Thus, I graphed the distributions over time for a return level of 25 years, 50 years, 75 years, and 100 years. Note that we began using a 'uniform' parameter set as well as a 'normal gamma' parameter set for this portion of the project. The most important aspect to know is that the 'uniform' parameter set would be expected to proudce less accurate results than the 'normal gamma' paramater set.
+
+![](x25SideBySide.gif)
+![](x50SideBySide.gif)
+![](x75SideBySide.gif)
+![](x100SideBySide.gif)
+
+Distribtuions with a smaller return level certainly do seem to better keep their shape as we make estimates further into the future, and it is notable that the 'uniform' distributions seem to better keep their shape than the 'normal gamma' paramter sets.
