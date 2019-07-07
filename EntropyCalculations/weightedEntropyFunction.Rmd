@@ -267,5 +267,8 @@ plot(lowess(timeVector, weightedX100Entropy), type = "l", col = "mediumblue", yl
 lines(lowess(timeVector, weightedX75Entropy), col = "darkred")
 lines(lowess(timeVector, weightedX50Entropy), col = "darkgreen")
 lines(lowess(timeVector, weightedX25Entropy), col = "mediumpurple")
+
+#Add a legend to differentiate between lines
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.8, title="Return Level", text.font=1)
 ```
 
