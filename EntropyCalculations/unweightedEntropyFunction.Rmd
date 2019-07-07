@@ -1,0 +1,355 @@
+---
+title: "EntropyFunction"
+author: "Travis Torline"
+---
+
+```{r}
+#Begin by loading the packages we'll need to perform our analysis
+library("extRemes")
+library(ncdf4)
+
+#Parameter set data created by Tony
+paramsUniform <- get(load("../output/mcmc_output_processed_uniform_13Jun2019.RData"))
+paramsNormalGamma <- get(load("../output/mcmc_output_processed_normalgamma_12Jun2019.RData"))
+
+#Load in and store
+params1Uniform <- paramsUniform[[1]] #All stationary
+params2Uniform <- paramsUniform[[2]] #Mu nonstationary
+params3Uniform <- paramsUniform[[3]] #Sigma nonstationary
+params4Uniform <- paramsUniform[[4]] #Xi nonstatioanry
+params5Uniform <- paramsUniform[[5]] #Mu/Sigma nonstationary
+params6Uniform <- paramsUniform[[6]] #Mu/Xi nonstationary
+params7Uniform <- paramsUniform[[7]] #Sigma/Xi nonstationary
+params8Uniform <- paramsUniform[[8]] #All nonstationary
+
+params1NG <- paramsNormalGamma[[1]] #All stationary
+params2NG <- paramsNormalGamma[[2]] #Mu nonstationary
+params3NG <- paramsNormalGamma[[3]] #Sigma nonstationary
+params4NG <- paramsNormalGamma[[4]] #Xi nonstatioanry
+params5NG <- paramsNormalGamma[[5]] #Mu/Sigma nonstationary
+params6NG <- paramsNormalGamma[[6]] #Mu/Xi nonstationary
+params7NG <- paramsNormalGamma[[7]] #Sigma/Xi nonstationary
+params8NG <- paramsNormalGamma[[8]] #All nonstationary
+
+
+#The following is code from advisor Tony Wong to read in and normalize historical temperature data from NOAA
+#The variables we'll need from this are 'temperature_proj' and 'time_proj'
+##=============================================================================
+## read_temperature_data.R
+##
+## read temperature data
+## historical from NOAA:
+##   NOAA National Centers for Environmental information, Climate at a Glance:
+##   Global Time Series, published May 2017, retrieved on June 7, 2017 from
+##   http://www.ncdc.noaa.gov/cag/
+## future projections from CRNM under RCP8.5, part of CMIP5
+##
+## Questions? Tony Wong (anthony.e.wong@colorado.edu)
+##=============================================================================
+
+# read the projections temperature forcing from CRNM (CMIP5)
+# note: these are in K, but going to normalize, so will take a difference and
+# it's same as celsius
+ncdata <- nc_open('../parameters_data/global.tas.aann.CNRM-CM5.historical+rcp85.r1i1p1.18500101-21001231.nc')
+temperature_proj <- ncvar_get(ncdata, 'tas')
+time_proj <- ncvar_get(ncdata, 'time')
+nc_close(ncdata)
+
+# 'time' on the netcdf ile is YYYYMMDD, where MMDD is July 2 each year (becuase
+# of the averaging). so pluck off just the years
+time_proj <- floor(time_proj/10000)
+
+# read the historical forcing from NOAA
+data.tmp <- read.table('../parameters_data/noaa_temperature_1880-2017.csv', header = TRUE, sep=',')
+time_hist <- data.tmp$Year
+temperature_hist <- data.tmp$Value
+
+# extend historical back to 1850 with HadCRUT4
+data.tmp = read.table('../parameters_data/HadCRUT.4.4.0.0.annual_ns_avg.txt')
+time_hadcrut = data.tmp[,1]
+temperature_hadcrut = data.tmp[,2]
+
+# normalize all to 1901-2000
+ind_norm <- which(time_hist==1901):which(time_hist==2000)
+temperature_hist <- temperature_hist - mean(temperature_hist[ind_norm])
+
+ind_norm <- which(time_hadcrut==1901):which(time_hadcrut==2000)
+temperature_hadcrut <- temperature_hadcrut - mean(temperature_hadcrut[ind_norm])
+
+ind_norm <- which(time_proj==1901):which(time_proj==2000)
+temperature_proj <- temperature_proj - mean(temperature_proj[ind_norm])
+
+# set up the forcing, wherein the historical starts, then projections finish
+# 1850-1880 -- hadcrut4
+# 1880-2016 -- NOAA historical
+# 2017-2100 -- CRNM projection
+time_forc <- min(time_hadcrut):max(time_proj)
+temperature_forc <- rep(NA, length(time_forc))
+
+ind_hadcrut <- which(time_hadcrut==time_forc[1]):(which(time_hadcrut==time_hist[1])-1)
+ind_hist    <- 1:length(time_hist)
+ind_proj    <- which(time_proj==(max(time_hist)+1)):which(time_proj==max(time_forc))
+
+temperature_forc <- c(temperature_hadcrut[ind_hadcrut],
+                      temperature_hist[ind_hist]      ,
+                      temperature_proj[ind_proj]      )
+
+# maximum temperature serves as an additinoal prior constraint on kappa0, kappa1
+# that is, kappa1 > -kappa0/Tmax (otherwise, kappa = kappa0 + kappa1*T might be
+# negative)  (not necessary for GEV models)
+Tmax <- max(temperature_forc)
+
+
+#Set up the formulas for nonstationary variables
+#Each function takes a stationary parameter, non-stationary parameter, and time as inputs
+#Each function calculates a new parameter value using the projected average temperature
+#The 'which' function finds the index of time_proj with the value we pass through
+#time is passed explicity in case no time is passed through by user
+muNonstat <- function(mu0, mu1, time = 2016){
+  newMu <- mu0 + mu1 * temperature_proj[which(time_proj == time)]
+}
+
+sigmaNonstat <- function(sigma0, sigma1, time = 2016){
+  newSigma <- exp(sigma0 + sigma1 * temperature_proj[which(time_proj == time)])
+}
+
+xiNonstat <- function(xi0, xi1, time = 2016){
+  newXi <- xi0 + xi1 * temperature_proj[which(time_proj == time)]
+}
+
+#A function that returns a dataframe of return leveles from the uniform parameter set
+getUniform <- function(yearStart, qevdProb){
+  
+    #Analyze when all parameters are staionary, params1
+  params1Vector <- apply(params1Uniform, 1, function(thisRow) qevd(qevdProb, thisRow["mu"], thisRow["sigma"], thisRow["xi"]))
+  
+  #Analyze when mu is non-stationary
+  params2Vector <- apply(params2Uniform, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["mu0"], thisRow["mu1"], yearStart), thisRow["sigma"], thisRow["xi"]))
+  
+  #Analyze when Sigma non-stationary
+  params3Vector <- apply(params3Uniform, 1, function(thisRow) qevd(qevdProb, thisRow["mu"], sigmaNonstat(thisRow["sigma0"], thisRow["sigma1"], yearStart), thisRow["xi"]))
+  
+  #Analyze when xi non-stationary
+  params4Vector <- apply(params4Uniform, 1, function(thisRow) qevd(qevdProb, thisRow["mu"], thisRow["sigma"], xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+  
+  #Analyze when sigma, xi non-stationary
+  params5Vector <- apply(params5Uniform, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["mu0"], thisRow["mu1"], yearStart), sigmaNonstat(thisRow["sigma0"], thisRow["sigma1"], yearStart), thisRow["xi"]))
+  
+  #Analyze when mu, xi non-stationary
+  params6Vector <- apply(params6Uniform, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["mu0"], thisRow["mu1"], yearStart), thisRow["sigma"], xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+  
+  #Analyze when mu, sigma non-stationary
+  params7Vector <- apply(params7Uniform, 1, function(thisRow) qevd(qevdProb, thisRow["mu"], sigmaNonstat(thisRow["sigma0"], thisRow["sigma1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+  
+  #Analyze when all non-stationary
+  params8Vector <- apply(params8Uniform, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["mu0"], thisRow["mu1"], yearStart), sigmaNonstat(thisRow["sigma0"], thisRow["sigma1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+  
+  #The final set in setting up is creating a dataframe out of these vectors
+  parameterDataFrame <- data.frame(params1Vector, params2Vector, params3Vector, params4Vector, params5Vector, params6Vector, params7Vector, params8Vector)
+    
+}
+
+#A function that returns a dataframe of return leveles from the normal gamma parameter set
+getNG <- function(yearStart, qevdProb){
+  
+    #Analyze when all parameters are staionary, params1
+  params1Vector <- apply(params1NG, 1, function(thisRow) qevd(qevdProb, thisRow["mu"], thisRow["sigma"], thisRow["xi"]))
+  
+  #Analyze when mu is non-stationary
+  params2Vector <- apply(params2NG, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["mu0"], thisRow["mu1"], yearStart), thisRow["sigma"], thisRow["xi"]))
+  
+  #Analyze when Sigma non-stationary
+  params3Vector <- apply(params3NG, 1, function(thisRow) qevd(qevdProb, thisRow["mu"], sigmaNonstat(thisRow["sigma0"], thisRow["sigma1"], yearStart), thisRow["xi"]))
+  
+  #Analyze when xi non-stationary
+  params4Vector <- apply(params4NG, 1, function(thisRow) qevd(qevdProb, thisRow["mu"], thisRow["sigma"], xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+  
+  #Analyze when sigma, xi non-stationary
+  params5Vector <- apply(params5NG, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["mu0"], thisRow["mu1"], yearStart), sigmaNonstat(thisRow["sigma0"], thisRow["sigma1"], yearStart), thisRow["xi"]))
+  
+  #Analyze when mu, xi non-stationary
+  params6Vector <- apply(params6NG, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["mu0"], thisRow["mu1"], yearStart), thisRow["sigma"], xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+  
+  #Analyze when mu, sigma non-stationary
+  params7Vector <- apply(params7NG, 1, function(thisRow) qevd(qevdProb, thisRow["mu"], sigmaNonstat(thisRow["sigma0"], thisRow["sigma1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+  
+  #Analyze when all non-stationary
+  params8Vector <- apply(params8NG, 1, function(thisRow) qevd(qevdProb, muNonstat(thisRow["mu0"], thisRow["mu1"], yearStart), sigmaNonstat(thisRow["sigma0"], thisRow["sigma1"], yearStart), xiNonstat(thisRow["xi0"], thisRow["xi1"], yearStart)))
+  
+  #The final set in setting up is creating a dataframe out of these vectors
+  parameterDataFrame <- data.frame(params1Vector, params2Vector, params3Vector, params4Vector, params5Vector, params6Vector, params7Vector, params8Vector)
+    
+}
+```
+
+```{r}
+
+
+#A function that calcualates the entropy of parameter sets over time
+#Takes  start year, an end year, a paramSet, and a qevdProb as inputs
+#paramSet = either 1(uniform) or 2 (normal gamma)
+#weightVector = A vector of 8 weights for the 8 models; 8 weights must add to 1
+#returns a dataframe with 8 columns, one for each model
+calculateEntropy <- function(yearStart = 2016, yearEnd = 2065, paramSet = 1, qevdProb = 0.99){
+  
+  #Create the data frame to store the entropy values in
+  entropyDataFrame <- data.frame(matrix(0, ncol = 8, nrow = yearEnd - yearStart + 1))
+  
+  #Acts as a row counter, to be used later when changing values in the data frame
+  currentRow = 1
+  
+  #We want to calculate the entropy for each year
+  for(i in yearStart:yearEnd){
+  
+    #Start by getting a distrbution of values for the give return level and given year
+    #Store in a data frame containing 8 columns, one for each parameter set
+    if(paramSet == 1){
+      parameterDataFrame <- getUniform(i, qevdProb)
+    }else{
+      parameterDataFrame <- getNG(i, qevdProb)
+    }
+  
+    
+    #Go over the data frame that was just retrieved
+    for(j in 1:ncol(parameterDataFrame)){
+      
+      #Turn the current column into a list of values
+      returnLevelList <- as.numeric(parameterDataFrame[,j])
+      
+      #Now, using that list, calculate the entropy of that year for the model
+      parameterDensity <- density(returnLevelList)
+      parameterFit <- approxfun(parameterDensity$x, parameterDensity$y)
+      parameterPointList <- parameterFit(returnLevelList)
+      entropy <- -sum(parameterPointList * log2(parameterPointList))
+      
+      #Add the value into the data frame
+      entropyDataFrame[currentRow, j] = entropy
+      
+    }
+    
+    #Increment and continue
+    currentRow = currentRow + 1
+  
+  }
+  
+  #Name the columns to reflect their model
+  colnames(entropyDataFrame) <- c("Params1Entropy", "Params2Entropy", "Params3Entropy","Params4Entropy","Params5Entropy","Params6Entropy","Params7Entropy","Params8Entropy")
+  
+  return(entropyDataFrame)
+  
+}
+
+
+#Finally, call the function to store dataframes for 100, 75, 50, and 25 year return levels
+#These data frames will be used to grah the entropy over time
+x100Entropy <- calculateEntropy(yearStart = 2016, yearEnd = 2065, paramSet = 1, qevdProb = 0.99)
+
+x75Entropy <- calculateEntropy(yearStart = 2016, yearEnd = 2065, paramSet = 1, qevdProb = (1-1/75))
+
+x50Entropy <- calculateEntropy(yearStart = 2016, yearEnd = 2065, paramSet = 1, qevdProb = 0.98)
+
+x25Entropy <- calculateEntropy(yearStart = 2016, yearEnd = 2065, paramSet = 1, qevdProb = 0.96)
+
+```
+
+```{r}
+#Create a time vector to use for the x-axis
+timeVector <- seq(from = 2016, to = 2065)
+
+#Create vectors to store values from the dataframe
+params1_100 <- x100Entropy$Params1Entropy
+params1_75 <- x75Entropy$Params1Entropy
+params1_50 <- x50Entropy$Params1Entropy
+params1_25 <- x25Entropy$Params1Entropy
+
+#Plot the values with the lowess function to achieve a smooth curve
+#Also include a legend to differentiate bewteen return levels
+plot(lowess(timeVector, params1_100), type = "l", col = "mediumblue", ylim = c(0,25), main = "Uniform Parameters 1 Entropy Over Time", xlab = "Year", ylab = "Entropy")
+lines(lowess(timeVector, params1_75), col = "darkred")
+lines(lowess(timeVector, params1_50), col = "darkgreen")
+lines(lowess(timeVector, params1_25), col = "mediumpurple")
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.6, title="Return Level", text.font=1)
+
+
+#Repeat the above process for the following 7 models
+params2_100 <- x100Entropy$Params2Entropy
+params2_75 <- x75Entropy$Params2Entropy
+params2_50 <- x50Entropy$Params2Entropy
+params2_25 <- x25Entropy$Params2Entropy
+
+plot(lowess(timeVector, params2_100), type = "l", col = "mediumblue", ylim = c(0,25), main = "Uniform Parameters 2 Entropy Over Time", xlab = "Year", ylab = "Entropy")
+lines(lowess(timeVector, params2_75), col = "darkred")
+lines(lowess(timeVector, params2_50), col = "darkgreen")
+lines(lowess(timeVector, params2_25), col = "mediumpurple")
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.6, title="Return Level", text.font=1)
+
+
+params3_100 <- x100Entropy$Params3Entropy
+params3_75 <- x75Entropy$Params3Entropy
+params3_50 <- x50Entropy$Params3Entropy
+params3_25 <- x25Entropy$Params3Entropy
+
+plot(lowess(timeVector, params3_100), type = "l", col = "mediumblue", ylim = c(0,15), main = "Uniform Parameters 3 Entropy Over Time", xlab = "Year", ylab = "Entropy")
+lines(lowess(timeVector, params3_75), col = "darkred")
+lines(lowess(timeVector, params3_50), col = "darkgreen")
+lines(lowess(timeVector, params3_25), col = "mediumpurple")
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.6, title="Return Level", text.font=1)
+
+params4_100 <- x100Entropy$Params4Entropy
+params4_75 <- x75Entropy$Params4Entropy
+params4_50 <- x50Entropy$Params4Entropy
+params4_25 <- x25Entropy$Params4Entropy
+
+plot(lowess(timeVector, params4_100), type = "l", col = "mediumblue", ylim = c(0,100), main = "Uniform Parameters 4 Entropy Over Time", xlab = "Year", ylab = "Entropy")
+lines(lowess(timeVector, params4_75), col = "darkred")
+lines(lowess(timeVector, params4_50), col = "darkgreen")
+lines(lowess(timeVector, params4_25), col = "mediumpurple")
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.6, title="Return Level", text.font=1)
+
+params5_100 <- x100Entropy$Params5Entropy
+params5_75 <- x75Entropy$Params5Entropy
+params5_50 <- x50Entropy$Params5Entropy
+params5_25 <- x25Entropy$Params5Entropy
+
+plot(lowess(timeVector, params5_100), type = "l", col = "mediumblue", ylim = c(0,10), main = "Uniform Parameters 5 Entropy Over Time", xlab = "Year", ylab = "Entropy")
+lines(lowess(timeVector, params5_75), col = "darkred")
+lines(lowess(timeVector, params5_50), col = "darkgreen")
+lines(lowess(timeVector, params5_25), col = "mediumpurple")
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.6, title="Return Level", text.font=1)
+
+params6_100 <- x100Entropy$Params6Entropy
+params6_75 <- x75Entropy$Params6Entropy
+params6_50 <- x50Entropy$Params6Entropy
+params6_25 <- x25Entropy$Params6Entropy
+
+plot(lowess(timeVector, params6_100), type = "l", col = "mediumblue", ylim = c(0,10), main = "Uniform Parameters 6 Entropy Over Time", xlab = "Year", ylab = "Entropy")
+lines(lowess(timeVector, params6_75), col = "darkred")
+lines(lowess(timeVector, params6_50), col = "darkgreen")
+lines(lowess(timeVector, params6_25), col = "mediumpurple")
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.6, title="Return Level", text.font=1)
+
+params7_100 <- x100Entropy$Params7Entropy
+params7_75 <- x75Entropy$Params7Entropy
+params7_50 <- x50Entropy$Params7Entropy
+params7_25 <- x25Entropy$Params7Entropy
+
+plot(lowess(timeVector, params7_100), type = "l", col = "mediumblue", ylim = c(0,10), main = "Uniform Parameters 7 Entropy Over Time", xlab = "Year", ylab = "Entropy")
+lines(lowess(timeVector, params7_75), col = "darkred")
+lines(lowess(timeVector, params7_50), col = "darkgreen")
+lines(lowess(timeVector, params7_25), col = "mediumpurple")
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.6, title="Return Level", text.font=1)
+
+params8_100 <- x100Entropy$Params8Entropy
+params8_75 <- x75Entropy$Params8Entropy
+params8_50 <- x50Entropy$Params8Entropy
+params8_25 <- x25Entropy$Params8Entropy
+
+plot(lowess(timeVector, params8_100), type = "l", col = "mediumblue", ylim = c(0,10), main = "Uniform Parameters 8 Entropy Over Time", xlab = "Year", ylab = "Entropy")
+lines(lowess(timeVector, params8_75), col = "darkred")
+lines(lowess(timeVector, params8_50), col = "darkgreen")
+lines(lowess(timeVector, params8_25), col = "mediumpurple")
+legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.6, title="Return Level", text.font=1)
+
+```
+
+
