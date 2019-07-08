@@ -111,3 +111,9 @@ We wanted to use these BMA weights to graph the distirbution, but we also wanted
 ![](x100SideBySide.gif)
 
 Distribtuions with a smaller return level certainly do seem to better keep their shape as we make estimates further into the future, and it is notable that the 'uniform' distributions seem to better keep their shape than the 'normal gamma' paramter sets.
+
+## Week 6 - Part Two
+
+In the same week, we wanted to measure the entropy (https://en.wikipedia.org/wiki/Entropy_(information_theory) of all 8 models as well as the weighted sitribution using the Uniform and Normal Gamma parameter sets. I wrote multiple functions to help with this task, which can be found in the 'EntropyCalculations' folder. Found within that same folder are images of the results from this exploration, as there are too many images to display in the ReadMe. 
+
+It is notable that entropy seems to be higher across ALL distributions when the Normal Gamma parameter set is used. Also, it appears that entropy actually INCREASES over time for the model 'Parameters 4', where as entropy stays the same for the model 'Parameters 1' and decreases in all other models. Finally, one notices that the entropy over time lines all appear to have an inflection point somewhere before or around the year 2040, which must be investigated.
