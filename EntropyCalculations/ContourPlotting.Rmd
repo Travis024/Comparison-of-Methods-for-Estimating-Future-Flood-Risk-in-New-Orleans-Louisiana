@@ -1,0 +1,60 @@
+---
+title: "contourPlotting"
+author: "Travis Torline"
+---
+
+```{r}
+#Install plotly
+#install.packages("plotly")
+
+library(plotly)
+
+#f, y, and x are used for styling the axes
+#They are added to the plot via a pipeline at the end of the plot_ly call
+f <- list(
+  family = "Arial, monospace",
+  size = 24,
+  color = "#7f7f7f"
+)
+x <- list(
+  title = "Year",
+  titlefont = f
+)
+y <- list(
+  title = "Return Level",
+  titlefont = f
+)
+
+#The x axis is the year
+#Y axis is the return level
+#Z axis is a 50 by n matrix of information entropy values. Row denotes year, column denotes return level
+entropyPlot <- plot_ly(
+  
+  #Added the 'by' portions to get the axes to match up more
+  #Without these calls, y axis only went to 50 and x axis extended to 2100
+  x = seq(from = 2016,to = 2065, by = 0.5), 
+  y = seq(from = 5, to = 100, by = 2), 
+  z = entropyMatrix, 
+  type = "contour",
+  
+  #This smooths the lines a little bit so they aren't so jagged
+  line = list(smoothing = 1),
+   
+  #This tells the plot how we want to color our contours
+  #In this case, we have contour values from 0 to 200 and use a different color every 50 bits.
+  contours = list(
+    start = 0,
+    end = 200,
+    size = 50
+  )
+)%>%
+  layout(title = "Return Level vs. Year vs. Information Entropy For Flood Projections in New Orleans", xaxis = x, yaxis = y)
+
+entropyPlot
+```
+
+```{r}
+colnames(entropyMatrix) <- seq(from = 5, to =100)
+head(entropyMatrix)
+```
+
