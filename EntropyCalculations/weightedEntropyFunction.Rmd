@@ -247,13 +247,13 @@ BMAWeights <- function(yearStart = 2016, yearEnd = 2065, qevdProb = 0.99, weight
 #We will read in the RDS file Tony created in the 'outputs' folder with his BMA weights
 weightVector <- readRDS('../output/bma_weights_uniform.rds')
 
-weightedX100Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = 0.99, weightVector = weightVector, paramSet = 1, iterations = 10000)
+weightedX100Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = 0.99, weightVector = weightVector, paramSet = 2, iterations = 10000)
 
-weightedX75Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = (1-1/75), weightVector = weightVector, paramSet = 1, iterations = 10000)
+weightedX75Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = (1-1/75), weightVector = weightVector, paramSet = 2, iterations = 10000)
 
-weightedX50Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = 0.98, weightVector = weightVector, paramSet = 1, iterations = 10000)
+weightedX50Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = 0.98, weightVector = weightVector, paramSet = 2, iterations = 10000)
 
-weightedX25Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = 0.96, weightVector = weightVector, paramSet = 1, iterations = 10000)
+weightedX25Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = 0.96, weightVector = weightVector, paramSet = 2, iterations = 10000)
 ```
 
 
@@ -263,12 +263,35 @@ weightedX25Entropy <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = 0.
 timeVector <- seq(from = 2016, to = 2065)
 
 #Plot the vectors using the lowess function to generate a nice curve
-plot(lowess(timeVector, weightedX100Entropy), type = "l", col = "mediumblue", ylim = c(0,125), main = "Weighted Entropy Over Time for Varying Return Levels", xlab = "Year", ylab = "Entropy")
+plot(lowess(timeVector, weightedX100Entropy), type = "l", col = "mediumblue", ylim = c(0,175), main = "Weighted Entropy Over Time for Varying Return Levels (Normal Gamma)", xlab = "Year", ylab = "Entropy")
 lines(lowess(timeVector, weightedX75Entropy), col = "darkred")
 lines(lowess(timeVector, weightedX50Entropy), col = "darkgreen")
 lines(lowess(timeVector, weightedX25Entropy), col = "mediumpurple")
 
 #Add a legend to differentiate between lines
 legend("topright", legend=c(100, 75, 50, 25), col = c("mediumblue", "darkred", "darkgreen", "mediumpurple"), lty=1, cex=0.8, title="Return Level", text.font=1)
+```
+
+```{r}
+#Create a matrix to store the entropy values for a defined time range over many return levels
+#Rows = Years
+#Colums = Return Levels
+#Cell data = entropy
+entropyMatrix <- matrix(0, nrow = 50, ncol = 0)
+
+#NOTE: RUNNING THIS LOOP TAKES A LONG TIME
+#Load in the "entropyMatrix.Rdata" file to skip this portion
+
+#Define the return levels here
+for(i in 5:100){
+  
+  #Call the BMAWeights function for each return level
+  entropyVector <- BMAWeights(yearStart = 2016, yearEnd = 2065, qevdProb = 1-(1/i), weightVector = weightVector, paramSet = 2, iterations = 10000)
+  
+  #This call essentailly appends the vector we just created to the end of the matrix
+  entropyMatrix <- cbind(entropyMatrix,entropyVector)
+  
+}
+
 ```
 
