@@ -9,6 +9,7 @@ Author: Travis Torline
 #Begin by loading the packages we'll need
 library("extRemes")
 library(ncdf4)
+library(triangle)
 
 #Parameter set data created by Tony
 paramsUniform <- get(load("../output/mcmc_output_processed_uniform_13Jun2019.RData"))
@@ -308,18 +309,22 @@ getNG <- function(yearStart, qevdProb){
 
 #Create a vector of weights here - remember, MUST ADD TO 1
 #We will read in the RDS file Tony created in the 'outputs' folder with his BMA weights
-weightVector <- readRDS('../output/bma_weights_uniform.rds')
+#weightVector <- readRDS('../output/bma_weights_uniform.rds')
 
 #Use the functions in order to get the necessary vectors and graph them against one another
-USACEDistribution <- generateUSACE(seaLevelData = LSL85, statParams = params1NG, timeProj = timeProj, iterations = 10000, yearStart = 2016, yearEnd = 2025, returnPeriod = 100, uniformStart = 1.5, uniformEnd = 2)
+#USACEDistribution <- generateUSACE(seaLevelData = LSL85, statParams = params1NG, timeProj = timeProj, iterations = 10000, yearStart = 2016, yearEnd = 2025, returnPeriod = 100, uniformStart = 1.5, uniformEnd = 2)
 
-weightedDistribution <- BMAWeights(year = 2025, qevdProb = 0.99, weightVector = weightVector, paramSet = 2, iterations = 10000)
+#weightedDistribution <- BMAWeights(year = 2025, qevdProb = 0.99, weightVector = weightVector, paramSet = 2, iterations = 10000)
 
 
 print(paste("Min of BMA:", min(weightedDistribution), sep = ""))
 print(paste("Min of USACE:", min(USACEDistribution), sep = ""))
 print(paste("Max of BMA:", max(weightedDistribution), sep = ""))
 print(paste("Max of USACE:", max(USACEDistribution), sep = ""))
+
+plot(sort(weightedDistribution), ylim = c(0, 50000))
+
+length(which(weightedDistribution > 14000))
 
 ```
 
@@ -337,14 +342,16 @@ rejectionSampling <- function(yearStart = 2016, yearEnd = 2065, returnPeriod = 1
   
   #Begin by generating a BMA weighted distribtuon and building an approximation of the density
   #We use paramSet = 2 because we only want the normal gamma data for this portion of our research
-   #Note that 1-(1/returnPeriod) is equal to our qevd probability
-  weightedDistribution <- BMAWeights(year = yearEnd, qevdProb = 1-(1/returnPeriod), weightVector = weightVector, iterations = iterations, paramSet = 2)
+  #Setting iterations to 10,000 gives us a large sample but allows the function to still run quickly
+  #Note that 1-(1/returnPeriod) is equal to our qevd probability
+  weightedDistribution <- BMAWeights(year = yearEnd, qevdProb = 1-(1/returnPeriod), weightVector = weightVector, iterations = 10000, paramSet = 2)
   
-  densityWeighted <- density(weightedDistribution)
+  #Bound the density distribution to throw out the outliers from the model
+  densityWeighted <- density(weightedDistribution, from = 0, to = 14000)
   weightedFunctionFit <- approxfun(densityWeighted$x, densityWeighted$y)
   
   #Now, do the same process as above for the USACE distribution
-  USACEDistribution <- generateUSACE(seaLevelData = LSL85, statParams = params1NG, timeProj = timeProj, iterations = iterations, yearStart = yearStart, yearEnd = yearEnd, returnPeriod = returnPeriod, uniformStart = uniformStart, uniformEnd = uniformEnd)
+  USACEDistribution <- generateUSACE(seaLevelData = LSL85, statParams = params1NG, timeProj = timeProj, iterations = 10000, yearStart = yearStart, yearEnd = yearEnd, returnPeriod = returnPeriod, uniformStart = uniformStart, uniformEnd = uniformEnd)
   
   densityUSACE <- density(USACEDistribution)
   USACEFunctionFit <- approxfun(densityUSACE$x, densityUSACE$y)
@@ -357,6 +364,7 @@ rejectionSampling <- function(yearStart = 2016, yearEnd = 2065, returnPeriod = 1
   #Begin by initializing emptry vectors for the values we will store
   surgeVector <- c()
   seaLevelVector <- c()
+  returnLevelVector <- c()
   muVector <- c()
   sigmaVector <- c()
   xiVector <- c()
@@ -378,7 +386,15 @@ rejectionSampling <- function(yearStart = 2016, yearEnd = 2065, returnPeriod = 1
   
   #Finally, sample from the uniform distribution to get the surge factor
   #Important note: This is the same distribution as used in our approximation function
-  surgeFactor <- runif(1, uniformStart, uniformEnd)
+  #surgeFactor <- runif(1, uniformStart, uniformEnd)
+  
+  #Can also use a triangular distribution to sample from:
+  #surgeFactor <- rtriangle(uniformStart, uniformEnd)
+  
+  #Can also use a normal distribution to sample from:
+  #Places the mean between the start and the end
+  #The standard deviation is a sixth the value of the difference between the two values
+  surgeFactor <- rnorm(1, mean = ((uniformStart + uniformEnd) / 2), sd = ((uniformEnd - uniformStart) / 6))
     
   #Now, calculate the return level using the sationary parameters sampled above
   #Note that 1-(1/returnPeriod) is equal to our qevd probability
@@ -391,7 +407,11 @@ rejectionSampling <- function(yearStart = 2016, yearEnd = 2065, returnPeriod = 1
   #For rejection sampling, the probability of accepting the surge factor is the ratio of the probability we see the return level in the weighted distirbtuion to the probaiity we see the return level in the USACE distribtuion
   #We take the min of (1, ratio) in case the ratio is higher than 1
   #In that case, we would always expect to see the return level we calculated
-  surgeProbability = min(1, weightedFunctionFit(returnLevel)/USACEFunctionFit(returnLevel))
+  #Further, note that we add 1e-09 to the numerator and denominator
+  #This epsilon value ensures we receieve a value even when the boundaries of the BMA extend beyond the USACE function
+  #The value is smaller than any probability recieved when the funstion is run with a return period of 100 over the time scale 2016 to 2065, which the greatest we will be using ths function for
+  surgeProbability = min(1, (weightedFunctionFit(returnLevel) + 1e-09) / (USACEFunctionFit(returnLevel) + 1e-09))
+
   
   #Next, we compare that probability to a probabilty drawn from a uniform distribution from 0 to 1
   #If surgeProbability is greater, add that surge factor to our vector along with the sea level change and GEV params
@@ -402,12 +422,13 @@ rejectionSampling <- function(yearStart = 2016, yearEnd = 2065, returnPeriod = 1
   #This covers the case where the boundaries of the BMA extend beyond the USACE function
   #We don't want this to happen in rejection sampling, but it stops errors from being thrown when playing around
   if(is.na(surgeProbability)){
-    surgeProbability = 0
+   surgeProbability = 0
   }
   
   if(surgeProbability > acceptanceBoundary){
     surgeVector <- append(surgeVector, surgeFactor)
     seaLevelVector <- append(seaLevelVector, seaLevelChange)
+    returnLevelVector <- append(returnLevelVector, returnLevel)
     muVector <- append(muVector, sampleMu)
     sigmaVector <- append(sigmaVector, sampleSigma)
     xiVector <- append(xiVector, sampleXi)
@@ -416,17 +437,32 @@ rejectionSampling <- function(yearStart = 2016, yearEnd = 2065, returnPeriod = 1
   }
   
   #Finally, create a dataframe out of the vectors
-  rejectionDataFrame <- data.frame(surgeVector, seaLevelVector, muVector, sigmaVector, xiVector)
+  rejectionDataFrame <- data.frame(surgeVector, seaLevelVector, returnLevelVector, muVector, sigmaVector, xiVector)
   
   return(rejectionDataFrame)
   
 }
 
-rejectionDataFrame <- rejectionSampling(yearStart = 2016, yearEnd = 2020, returnPeriod = 20, iterations = 10000, weightVector = weightVector, uniformStart = 0, uniformEnd = 2)
+rejectionDataFrame <- rejectionSampling(yearStart = 2016, yearEnd = 2025, returnPeriod = 20, iterations = 10000, weightVector = weightVector, uniformStart = 1.5, uniformEnd = 2)
 ```
+
 
 ```{r}
 getSurges <- rejectionDataFrame[["surgeVector"]]
 hist(getSurges)
+
+  weightedDistribution <- BMAWeights(year = 2025, qevdProb = 1-(1/100), weightVector = weightVector, iterations = 10000, paramSet = 2)
+  
+  densityWeighted <- density(weightedDistribution, from = 0, to = 10000)
+  
+    USACEDistribution <- generateUSACE(seaLevelData = LSL85, statParams = params1NG, timeProj = timeProj, iterations = 10000, yearStart = 2016, yearEnd = 2025, returnPeriod = 100, uniformStart = 1.5, uniformEnd = 2)
+  
+  densityUSACE <- density(USACEDistribution, from = 0, to = 10000)
+  
+hist(USACEDistribution)
+hist(weightedDistribution[which(weightedDistribution < 14e3)])
+  
+  
 ```
+
 
