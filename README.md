@@ -117,3 +117,17 @@ Distribtuions with a smaller return level certainly do seem to better keep their
 In the same week, we wanted to measure the entropy (https://en.wikipedia.org/wiki/Entropy_(information_theory) of all 8 models as well as the weighted sitribution using the Uniform and Normal Gamma parameter sets. I wrote multiple functions to help with this task, which can be found in the 'EntropyCalculations' folder. Found within that same folder are images of the results from this exploration, as there are too many images to display in the ReadMe. 
 
 It is notable that entropy seems to be higher across ALL distributions when the Normal Gamma parameter set is used. Also, it appears that entropy actually INCREASES over time for the model 'Parameters 4', where as entropy stays the same for the model 'Parameters 1' and decreases in all other models. Finally, one notices that the entropy over time lines all appear to have an inflection point somewhere before or around the year 2040, which must be investigated.
+
+## Week 7, 8
+
+Week 7 and week 8 have both been dedicated to rejection sampling, the method that Tony and I are utilizing in order to compare our model for future flood levels to the USACE's model for future flood levels. Code can be found in the folder titled "RejectionSampling". The process of rejection sampling looks a little bit as follows:
+
+- Pick a projection year as well as a projection return period. Sample a random surge factor
+- Use the above to create two models, one for our own model and one for the USACE's
+- Now, for every projected flood level in our model, compare the probability of that flood level occuring to the probability of the same flood level occuring in the USACE model
+- If the ratio of Probability (Our Model) : Probability (USACE) model is within a certain range, accept the surge factor sampled in step one
+- Repeat this process for a bunch of different surge levels
+
+You can read more about rejection sampling here (https://en.wikipedia.org/wiki/Rejection_sampling). The process is a little bit tricky due to the way our model spreads out as projection years and return levels increase. These means that our model's shape is changing, which also changes the viability of rejection sampling.
+
+These two weeks have also been dedicated to another very exciting process: Submitting and abstract and applying for travel grants! Tony and I are attempting to take this research to the American Geophysical Union's Fall Meeting 2019 (https://www2.agu.org/fall-meeting), meaning we had to write a scientific abstract, a normal language abstract, and a scientific merit essay to be considered. Because the Fall Meeting comes with some costs, I also wrote a number of essays in order to apply for a student travle grant from both the AGU and the University of Colorado Boulder. Essay writing and editing is a little bit time consuming, meaning that it slowed our work with rejection sampling. However, given that the deadlines for the abstract submissions and travel grants are fast approaching, it was good for us to complete our submissions now instead of waiting until the last minute.
